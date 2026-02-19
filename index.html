@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workspace</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#e8e7e3;--surface:#dddbd6;--surface2:#d0cec9;
+  --border:#c2bfb8;--border-strong:#a8a49c;
+  --text:#1c1b19;--text-muted:#726f68;
+  --accent:#2a2a28;--accent-soft:#cccac4;
+  --blue:#1d4ed8;--blue-dark:#1e40af;
+  --green-bg:#d1fae5;--green-text:#065f46;
+  --tag-done:#c8e6ca;--tag-done-text:#1b5e20;
+  --tag-pend:#f0e5b8;--tag-pend-text:#7a4500;
+  --tag-high:#f0ccc8;--tag-high-text:#7a1a14;
+  --modal-bg:rgba(0,0,0,.4);--radius:8px;--sw:230px;
+}
+body.dark{
+  --bg:#131313;--surface:#1c1c1c;--surface2:#222;
+  --border:#2a2a2a;--border-strong:#363636;
+  --text:#ccc9c4;--text-muted:#625f5a;
+  --accent:#b8b5ae;--accent-soft:#242424;
+  --blue:#2563eb;--blue-dark:#1d4ed8;
+  --green-bg:#022c22;--green-text:#34d399;
+  --tag-done:#142414;--tag-done-text:#4caf58;
+  --tag-pend:#241c08;--tag-pend-text:#c8922a;
+  --tag-high:#240c08;--tag-high-text:#d86060;
+  --modal-bg:rgba(0,0,0,.65);
+}
+body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);
+  height:100vh;display:flex;flex-direction:column;overflow:hidden;transition:background .2s,color .2s}
+
+/* ══ AUTH ══ */
+#auth-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;
+  justify-content:center;z-index:1000;transition:background .2s}
+.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:34px 30px 28px;width:370px;display:flex;flex-direction:column;gap:14px}
+.auth-logo{font-family:'Lora',serif;font-size:22px;font-weight:600;color:var(--text);
+  text-align:center;letter-spacing:-.5px}
+.auth-sub{font-size:11px;color:var(--text-muted);text-align:center;line-height:1.6}
+.auth-field{display:flex;flex-direction:column;gap:5px}
+.auth-label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)}
+.auth-input{font-family:'DM Mono',monospace;font-size:13px;padding:10px 11px;
+  border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--text);
+  outline:none;transition:border-color .15s}
+.auth-input:focus{border-color:var(--blue)}
+.auth-btn{font-family:'DM Mono',monospace;font-size:13px;padding:11px;border-radius:7px;
+  border:none;background:var(--blue);color:#fff;cursor:pointer;transition:background .15s;
+  display:flex;align-items:center;justify-content:center;gap:8px}
+.auth-btn:hover{background:var(--blue-dark)}
+.auth-btn:disabled{opacity:.5;cursor:not-allowed}
+.auth-btn.sec{background:transparent;border:1px solid var(--border-strong);color:var(--text-muted)}
+.auth-btn.sec:hover{background:var(--accent-soft);color:var(--text)}
+.auth-error{font-size:11px;color:#c0392b;min-height:16px;text-align:center;font-weight:500}
+.auth-ok{font-size:11px;color:var(--green-text);background:var(--green-bg);
+  border-radius:6px;padding:7px 10px;line-height:1.6;display:none}
+.auth-divider{display:flex;align-items:center;gap:10px;color:var(--text-muted);font-size:11px}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.folder-box{border:2px dashed var(--border-strong);border-radius:10px;padding:18px 14px;
+  display:flex;flex-direction:column;align-items:center;gap:9px;cursor:pointer;transition:all .15s;text-align:center}
+.folder-box:hover{border-color:var(--blue);background:var(--surface2)}
+.folder-box .fi{font-size:30px}
+.folder-box .ft{font-size:13px;color:var(--text)}
+.folder-box .fs{font-size:11px;color:var(--text-muted);line-height:1.5}
+.info-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;font-size:11px;color:var(--text-muted);line-height:1.7}
+.info-box b{color:var(--text)}
+.spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+  border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ══ BLUE BAR ══ */
+.bluebar{background:var(--blue);padding:8px 18px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.bl-title{font-family:'Lora',serif;font-size:14px;font-weight:600;color:rgba(255,255,255,.95)}
+.bl-folder{font-size:10px;color:rgba(255,255,255,.55);max-width:180px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;cursor:pointer;padding:3px 7px;border-radius:4px}
+.bl-folder:hover{background:rgba(255,255,255,.12)}
+.bb-sp{flex:1}
+.bb-btn{font-family:'DM Mono',monospace;font-size:11px;padding:5px 12px;border-radius:6px;
+  border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.1);
+  color:rgba(255,255,255,.9);cursor:pointer;transition:background .14s;white-space:nowrap}
+.bb-btn:hover{background:rgba(255,255,255,.2)}
+.bb-btn.red{border-color:rgba(255,120,120,.4);color:rgba(255,200,200,.95)}
+.bb-btn.red:hover{background:rgba(180,40,40,.35)}
+.th-tog{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.th-lbl{font-size:10px;color:rgba(255,255,255,.7);white-space:nowrap}
+.tog-tr{width:32px;height:17px;background:rgba(255,255,255,.18);border-radius:9px;position:relative;
+  border:1px solid rgba(255,255,255,.22);transition:background .2s;flex-shrink:0}
+.tog-tr.on{background:rgba(255,255,255,.38)}
+.tog-th{position:absolute;top:2px;left:2px;width:11px;height:11px;background:#fff;
+  border-radius:50%;transition:left .18s}
+.tog-tr.on .tog-th{left:17px}
+
+/* ══ TOPBAR ══ */
+.topbar{display:flex;align-items:center;gap:10px;padding:9px 18px;
+  border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.mode-btn{font-family:'DM Mono',monospace;font-size:12px;padding:5px 16px;border-radius:18px;
+  border:1px solid var(--border-strong);background:transparent;color:var(--text-muted);
+  cursor:pointer;transition:all .14s}
+.mode-btn.active{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.mode-btn:hover:not(.active){background:var(--accent-soft);color:var(--text)}
+.bsp{flex:1}
+.ss{font-size:10px;color:var(--text-muted)}
+
+/* ══ MAIN ══ */
+.main{display:flex;flex:1;overflow:hidden}
+
+/* NOTEBOOK */
+#notebook-view{display:flex;flex:1;overflow:hidden}
+.nb-sidebar{width:var(--sw);border-right:1px solid var(--border);background:var(--surface);
+  display:flex;flex-direction:column;flex-shrink:0}
+.nb-sh{padding:11px 13px 9px;border-bottom:1px solid var(--border);display:flex;
+  align-items:center;justify-content:space-between}
+.nb-st{font-size:10px;color:var(--text-muted);letter-spacing:1.2px;text-transform:uppercase}
+.ic-btn{width:23px;height:23px;border-radius:5px;border:none;background:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:17px;transition:background .12s}
+.ic-btn:hover{background:var(--accent-soft);color:var(--text)}
+.nb-tl{flex:1;overflow-y:auto;padding:5px 0}
+.nb-tab{display:flex;align-items:center;padding:7px 13px;cursor:pointer;font-size:12px;
+  color:var(--text-muted);gap:7px;transition:background .1s;user-select:none}
+.nb-tab:hover{background:var(--accent-soft);color:var(--text)}
+.nb-tab.active{background:var(--accent-soft);color:var(--text);font-weight:500}
+.nb-tab .tn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nb-tab .td{opacity:0;font-size:14px;color:var(--text-muted);background:none;border:none;
+  cursor:pointer;padding:0 2px;line-height:1}
+.nb-tab:hover .td{opacity:1}
+.nb-tab .td:hover{color:#c0392b}
+.nb-ed{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.nb-eh{padding:13px 20px 10px;border-bottom:1px solid var(--border)}
+.nb-ti{font-family:'Lora',serif;font-size:18px;font-weight:600;border:none;outline:none;
+  background:transparent;color:var(--text);width:100%}
+.nb-ti::placeholder{color:var(--text-muted)}
+.nb-tb{padding:6px 20px;border-bottom:1px solid var(--border);display:flex;
+  align-items:center;gap:2px;flex-wrap:wrap;background:var(--surface)}
+.tb-b{font-family:'DM Mono',monospace;font-size:11px;padding:3px 8px;border:1px solid transparent;
+  border-radius:4px;background:none;cursor:pointer;color:var(--text-muted);transition:all .12s}
+.tb-b:hover{background:var(--accent-soft);color:var(--text);border-color:var(--border)}
+.tb-s{width:1px;height:15px;background:var(--border);margin:0 2px}
+.nb-hint{padding:4px 20px 3px;border-bottom:1px solid var(--border);background:var(--surface);
+  font-size:10px;color:var(--text-muted)}
+.nb-cnt{flex:1;overflow-y:auto;padding:16px 20px;background:var(--bg);position:relative}
+.nb-ca{min-height:100%;font-family:'Lora',serif;font-size:14px;line-height:1.8;
+  color:var(--text);outline:none;border:none;background:transparent;width:100%}
+
+/* IMAGE */
+.iw{display:inline-block;position:relative;margin:6px 4px;cursor:default;line-height:0;vertical-align:top}
+.iw img{display:block;border-radius:4px;max-width:100%}
+.iw.sel{outline:2px solid var(--blue)}
+.iw .rh{position:absolute;width:10px;height:10px;background:var(--blue);border-radius:50%;display:none;z-index:10}
+.iw.sel .rh{display:block}
+.rh.se{bottom:-5px;right:-5px;cursor:se-resize}
+.rh.sw{bottom:-5px;left:-5px;cursor:sw-resize}
+.rh.ne{top:-5px;right:-5px;cursor:ne-resize}
+.rh.nw{top:-5px;left:-5px;cursor:nw-resize}
+.itb{position:absolute;top:-30px;left:50%;transform:translateX(-50%);
+  background:var(--accent);color:var(--bg);border-radius:6px;padding:3px 6px;
+  display:none;gap:4px;white-space:nowrap;z-index:20}
+.iw.sel .itb{display:flex}
+.itb-b{font-family:'DM Mono',monospace;font-size:10px;padding:2px 7px;border-radius:4px;
+  border:none;background:rgba(255,255,255,.15);color:inherit;cursor:pointer}
+.itb-b:hover{background:rgba(255,255,255,.3)}
+.nb-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;color:var(--text-muted);font-size:12px;gap:7px;background:var(--bg);flex:1}
+
+/* TASKS */
+#task-view{display:none;flex:1;flex-direction:column;overflow:hidden}
+.tl{display:flex;flex:1;overflow:hidden}
+.tm{flex:1;overflow-y:auto;padding:20px 28px;max-width:640px;margin:0 auto;width:100%}
+.ta-box{display:flex;align-items:center;gap:8px;padding:10px 13px;border:1px solid var(--border);
+  border-radius:var(--radius);background:var(--surface);margin-bottom:22px}
+.ta-inp{flex:1;border:none;outline:none;font-family:'DM Mono',monospace;font-size:12px;
+  background:transparent;color:var(--text)}
+.ta-inp::placeholder{color:var(--text-muted)}
+.ta-sel{font-family:'DM Mono',monospace;font-size:11px;border:1px solid var(--border);
+  border-radius:5px;padding:4px 6px;background:var(--bg);color:var(--text-muted);outline:none;cursor:pointer}
+.ta-btn{font-family:'DM Mono',monospace;font-size:11px;padding:5px 13px;border-radius:6px;
+  border:none;background:var(--blue);color:#fff;cursor:pointer;transition:opacity .12s}
+.ta-btn:hover{opacity:.85}
+.ts-lbl{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px}
+.t-list{display:flex;flex-direction:column;gap:5px;margin-bottom:22px}
+.t-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;
+  border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);transition:border-color .12s}
+.t-item:hover{border-color:var(--border-strong)}
+.t-item.done{opacity:.48}
+.t-chk{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--border-strong);background:none;
+  cursor:pointer;flex-shrink:0;margin-top:1px;transition:all .12s;display:flex;align-items:center;
+  justify-content:center;font-size:9px;color:transparent}
+.t-chk:hover{border-color:var(--blue)}
+.t-item.done .t-chk{background:var(--blue);border-color:var(--blue);color:#fff}
+.t-body{flex:1}
+.t-txt{font-size:12px;line-height:1.5;color:var(--text)}
+.t-item.done .t-txt{text-decoration:line-through;color:var(--text-muted)}
+.t-meta{display:flex;align-items:center;gap:7px;margin-top:3px}
+.t-tag{font-size:10px;padding:1px 7px;border-radius:12px}
+.t-tag.hi{background:var(--tag-high);color:var(--tag-high-text)}
+.t-tag.md{background:var(--tag-pend);color:var(--tag-pend-text)}
+.t-tag.lo{background:var(--tag-done);color:var(--tag-done-text)}
+.t-date{font-size:10px;color:var(--text-muted)}
+.t-del{background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:13px;
+  padding:1px 3px;opacity:0;transition:opacity .1s;align-self:center}
+.t-item:hover .t-del{opacity:1}
+.t-del:hover{color:#c0392b}
+
+/* MODAL */
+.mo{position:fixed;inset:0;background:var(--modal-bg);display:flex;align-items:center;
+  justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity .16s}
+.mo.open{opacity:1;pointer-events:auto}
+.mb{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:26px 26px 20px;width:315px;display:flex;flex-direction:column;gap:13px}
+.mt{font-family:'Lora',serif;font-size:15px;font-weight:600;color:var(--text)}
+.ms{font-size:11px;color:var(--text-muted);margin-top:-5px;line-height:1.5}
+.mf{display:flex;flex-direction:column;gap:4px}
+.ml{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)}
+.mi{font-family:'DM Mono',monospace;font-size:12px;padding:9px 10px;border:1px solid var(--border);
+  border-radius:6px;background:var(--bg);color:var(--text);outline:none;transition:border-color .15s}
+.mi:focus{border-color:var(--blue)}
+.ma{display:flex;gap:7px;justify-content:flex-end}
+.m-btn{font-family:'DM Mono',monospace;font-size:11px;padding:7px 15px;border-radius:6px;
+  border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;transition:all .12s}
+.m-btn:hover{background:var(--accent-soft);color:var(--text)}
+.m-btn.pr{background:var(--blue);color:#fff;border-color:var(--blue)}
+.m-btn.pr:hover{background:var(--blue-dark)}
+.m-btn.dr{border-color:#8b2020;color:#c04040}
+.m-btn.dr:hover{background:#8b2020;color:#fff}
+.m-err{font-size:11px;color:#d04040;min-height:14px}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--accent);color:var(--bg);
+  font-size:11px;padding:8px 16px;border-radius:8px;z-index:2000;
+  opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
+#img-input{display:none}
+</style>
+</head>
+<body>
+
+<!-- ══ AUTH SCREEN ══ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">Workspace</div>
+
+    <!-- STEP 1: Pick folder -->
+    <div id="step-folder">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="auth-sub">All data saved as real files on your computer. Pick a folder to begin.</div>
+        <div class="info-box">
+          <b>📁 Folder Structure created automatically:</b><br>
+          workspace.json · notebooks/YourNote/content.html · notebooks/YourNote/images/ · tasks/tasks.json
+        </div>
+        <div class="folder-box" id="pick-btn" onclick="pickFolder()">
+          <div class="fi">📂</div>
+          <div class="ft">Click to Choose Workspace Folder</div>
+          <div class="fs">Pick any empty folder on your computer.<br>Works on Windows, Mac, Linux.</div>
+        </div>
+        <div class="auth-ok" id="folder-ok"></div>
+        <button class="auth-btn" id="continue-btn" style="display:none" onclick="goToAuth()">Continue →</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: Create account -->
+    <div id="step-create" style="display:none">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="auth-sub">First time here. Create your account — password is SHA-256 hashed, stored only in your folder.</div>
+        <div class="auth-field">
+          <div class="auth-label">Username</div>
+          <input class="auth-input" id="su-user" type="text" placeholder="e.g. yourname" autocomplete="off">
+        </div>
+        <div class="auth-field">
+          <div class="auth-label">Password (min 4 characters)</div>
+          <input class="auth-input" id="su-pass" type="password" placeholder="••••••••">
+        </div>
+        <div class="auth-field">
+          <div class="auth-label">Confirm Password</div>
+          <input class="auth-input" id="su-pass2" type="password" placeholder="••••••••"
+                 onkeydown="if(event.key==='Enter')createAccount()">
+        </div>
+        <div class="auth-error" id="su-err"></div>
+        <button class="auth-btn" id="create-btn" onclick="createAccount()">Create Account &amp; Open</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: Sign in -->
+    <div id="step-signin" style="display:none">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="auth-sub" id="si-sub">Welcome back! Sign in to your workspace.</div>
+        <div class="auth-field">
+          <div class="auth-label">Username</div>
+          <input class="auth-input" id="si-user" type="text" placeholder="username" autocomplete="username">
+        </div>
+        <div class="auth-field">
+          <div class="auth-label">Password</div>
+          <input class="auth-input" id="si-pass" type="password" placeholder="••••••••"
+                 onkeydown="if(event.key==='Enter')signIn()">
+        </div>
+        <div class="auth-error" id="si-err"></div>
+        <button class="auth-btn" id="signin-btn" onclick="signIn()">Sign In</button>
+        <div class="auth-divider">or</div>
+        <button class="auth-btn sec" onclick="resetToFolderStep()">📁 Choose Different Folder</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ BLUE BAR ══ -->
+<div class="bluebar" id="bluebar" style="display:none">
+  <span class="bl-title">Workspace</span>
+  <span class="bl-folder" id="bl-folder" onclick="resetToFolderStep()">📁 …</span>
+  <span class="bb-sp"></span>
+  <div class="th-tog" onclick="toggleTheme()">
+    <span class="th-lbl" id="th-lbl">☀ Light</span>
+    <div class="tog-tr" id="tog-tr"><div class="tog-th"></div></div>
+  </div>
+  <button class="bb-btn" onclick="saveAll()">💾 Save All</button>
+  <button class="bb-btn" onclick="openChangePw()">🔑 Change Password</button>
+  <button class="bb-btn red" onclick="openDeleteAcc()">🗑 Delete</button>
+</div>
+
+<!-- ══ MODE BAR ══ -->
+<div class="topbar" id="topbar" style="display:none">
+  <button class="mode-btn active" id="btn-nb" onclick="switchMode('notebook')">📓 Notebook</button>
+  <button class="mode-btn" id="btn-tk" onclick="switchMode('tasks')">✅ Tasks</button>
+  <span class="bsp"></span>
+  <span class="ss" id="ss"></span>
+</div>
+
+<!-- ══ APP ══ -->
+<div class="main" id="main-app" style="display:none">
+
+  <!-- NOTEBOOK -->
+  <div id="notebook-view">
+    <div class="nb-sidebar">
+      <div class="nb-sh">
+        <span class="nb-st">Notebooks</span>
+        <button class="ic-btn" onclick="newNotebook()" title="New notebook">＋</button>
+      </div>
+      <div class="nb-tl" id="nb-tl"></div>
+    </div>
+    <div class="nb-ed">
+      <div id="nb-inner" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+        <div class="nb-eh">
+          <input class="nb-ti" id="nb-title" placeholder="Notebook title…" oninput="onTitleChange()">
+        </div>
+        <div class="nb-tb">
+          <button class="tb-b" onclick="ec('bold')"><b>B</b></button>
+          <button class="tb-b" onclick="ec('italic')"><i>I</i></button>
+          <button class="tb-b" onclick="ec('underline')"><u>U</u></button>
+          <button class="tb-b" onclick="ec('strikeThrough')"><s>S</s></button>
+          <span class="tb-s"></span>
+          <button class="tb-b" onclick="ec('insertUnorderedList')">• List</button>
+          <button class="tb-b" onclick="ec('insertOrderedList')">1. List</button>
+          <span class="tb-s"></span>
+          <button class="tb-b" onclick="ec('formatBlock','h2')">H2</button>
+          <button class="tb-b" onclick="ec('formatBlock','blockquote')">❝</button>
+          <button class="tb-b" onclick="ec('formatBlock','pre')">Code</button>
+          <span class="tb-s"></span>
+          <button class="tb-b" onclick="document.getElementById('img-input').click()">🖼 Image</button>
+          <button class="tb-b" onclick="ec('insertHTML','<hr>')">─ Line</button>
+        </div>
+        <div class="nb-hint">
+          💡 <b>Ctrl+V</b> paste image from web · Drag image file · Click image → resize / crop / duplicate · <b>Ctrl+S</b> save
+        </div>
+        <div class="nb-cnt">
+          <div class="nb-ca" id="nb-editor" contenteditable="true" spellcheck="true"></div>
+        </div>
+      </div>
+      <div id="nb-empty" class="nb-empty">
+        <div style="font-size:28px">📓</div>
+        <div>No notebook selected</div>
+        <div style="font-size:10px;margin-top:2px">Click ＋ to create a notebook</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASKS -->
+  <div id="task-view">
+    <div class="tl">
+      <div class="tm">
+        <div class="ta-box">
+          <input class="ta-inp" id="t-inp" placeholder="Add a task…" onkeydown="if(event.key==='Enter')addTask()">
+          <select class="ta-sel" id="t-pri">
+            <option value="med">Normal</option>
+            <option value="high">High</option>
+            <option value="low">Low</option>
+          </select>
+          <button class="ta-btn" onclick="addTask()">Add</button>
+        </div>
+        <div id="pend-sec">
+          <div class="ts-lbl">To Do</div>
+          <div class="t-list" id="t-pend"></div>
+        </div>
+        <div id="done-sec">
+          <div class="ts-lbl">Completed</div>
+          <div class="t-list" id="t-done"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="mo" id="mo-pw">
+  <div class="mb">
+    <div class="mt">Change Password</div>
+    <div class="ms">Verify your current password first.</div>
+    <div class="mf"><div class="ml">Current Password</div><input class="mi" id="cp-cur" type="password"></div>
+    <div class="mf"><div class="ml">New Password</div><input class="mi" id="cp-new" type="password"></div>
+    <div class="mf"><div class="ml">Confirm New</div>
+      <input class="mi" id="cp-con" type="password" onkeydown="if(event.key==='Enter')doChangePw()"></div>
+    <div class="m-err" id="cp-err"></div>
+    <div class="ma">
+      <button class="m-btn" onclick="closeMo('mo-pw')">Cancel</button>
+      <button class="m-btn pr" onclick="doChangePw()">Update</button>
+    </div>
+  </div>
+</div>
+
+<div class="mo" id="mo-del">
+  <div class="mb">
+    <div class="mt">Delete Account</div>
+    <div class="ms">Removes your login from workspace.json. Your files on disk remain untouched.</div>
+    <div class="mf"><div class="ml">Enter Password</div>
+      <input class="mi" id="del-pw" type="password" onkeydown="if(event.key==='Enter')doDelete()"></div>
+    <div class="m-err" id="del-err"></div>
+    <div class="ma">
+      <button class="m-btn" onclick="closeMo('mo-del')">Cancel</button>
+      <button class="m-btn dr" onclick="doDelete()">Delete Account</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="img-input" accept="image/*" onchange="onImgFileInput(event)">
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function genId(){return Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6);}
+function genImgName(type){
+  const ext=(type||'image/png').split('/')[1]||'png';
+  return 'img_'+Date.now()+'_'+Math.random().toString(36).slice(2,5)+'.'+ext;
+}
+function sanitize(name){return name.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_').trim()||'Untitled';}
+
+let _toast=null;
+function toast(msg,ms=2800){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(_toast);_toast=setTimeout(()=>el.classList.remove('show'),ms);
+}
+
+function setBtn(id,loading,text){
+  const el=document.getElementById(id);if(!el)return;
+  el.disabled=loading;
+  el.innerHTML=loading?`<span class="spinner"></span>${text}…`:text;
+}
+
+// ═══════════════════════════════════════════════
+// THEME
+// ═══════════════════════════════════════════════
+let dark=localStorage.getItem('ws_dark')==='1';
+function applyTheme(){
+  document.body.classList.toggle('dark',dark);
+  const tr=document.getElementById('tog-tr'),lb=document.getElementById('th-lbl');
+  if(tr){tr.classList.toggle('on',dark);lb.textContent=dark?'🌙 Dark':'☀ Light';}
+}
+function toggleTheme(){dark=!dark;localStorage.setItem('ws_dark',dark?'1':'0');applyTheme();}
+applyTheme();
+
+// ═══════════════════════════════════════════════
+// SHA-256
+// ═══════════════════════════════════════════════
+async function sha256(s){
+  const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+
+// ═══════════════════════════════════════════════
+// FILE SYSTEM HELPERS
+// ═══════════════════════════════════════════════
+// Get or create a subdirectory
+async function getDir(parent,name){
+  return await parent.getDirectoryHandle(name,{create:true});
+}
+
+// Read a text file; returns null if not found
+async function readTxt(dir,name){
+  try{
+    const fh=await dir.getFileHandle(name);
+    return await (await fh.getFile()).text();
+  }catch(e){return null;}
+}
+
+// Write a text file
+async function writeTxt(dir,name,content){
+  const fh=await dir.getFileHandle(name,{create:true});
+  const w=await fh.createWritable();
+  await w.write(content);
+  await w.close();
+}
+
+// Read a binary file as a File/Blob; returns null if not found
+async function readBin(dir,name){
+  try{
+    const fh=await dir.getFileHandle(name);
+    return await fh.getFile(); // File extends Blob
+  }catch(e){return null;}
+}
+
+// Write a binary blob
+async function writeBin(dir,name,blob){
+  const fh=await dir.getFileHandle(name,{create:true});
+  const w=await fh.createWritable();
+  await w.write(blob);
+  await w.close();
+}
+
+// Delete a file, silently ignore if missing
+async function delFile(dir,name){
+  try{await dir.removeEntry(name);}catch(e){}
+}
+
+// ═══════════════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════════════
+let ROOT=null;        // FileSystemDirectoryHandle — user's workspace folder
+let auth=null;        // {user, hash}
+let notebooks=[];     // [{id, title, folder}]
+let tasks=[];         // [{id, text, priority, done, date}]
+let activeNbId=null;
+let saveTimer=null;
+let nbDir=null;       // handle to notebooks/
+let taskDir=null;     // handle to tasks/
+
+// ═══════════════════════════════════════════════
+// AUTH STEP NAVIGATION
+// ═══════════════════════════════════════════════
+function showStep(step){
+  ['folder','create','signin'].forEach(s=>{
+    document.getElementById('step-'+s).style.display='none';
+  });
+  document.getElementById('step-'+step).style.display='';
+}
+
+function resetToFolderStep(){
+  ROOT=null;auth=null;notebooks=[];tasks=[];activeNbId=null;
+  document.getElementById('folder-ok').style.display='none';
+  document.getElementById('continue-btn').style.display='none';
+  showStep('folder');
+  document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('bluebar').style.display='none';
+  document.getElementById('topbar').style.display='none';
+  document.getElementById('main-app').style.display='none';
+}
+
+// STEP 1 — pick folder
+async function pickFolder(){
+  try{
+    const handle=await window.showDirectoryPicker({mode:'readwrite',startIn:'documents'});
+    ROOT=handle;
+    const ok=document.getElementById('folder-ok');
+    ok.style.display='';
+    ok.textContent='✓ Selected: '+handle.name+' — click Continue';
+    document.getElementById('continue-btn').style.display='';
+  }catch(e){
+    if(e.name!=='AbortError')toast('Could not open folder: '+e.message);
+  }
+}
+
+// STEP 1 → decide which next step
+async function goToAuth(){
+  if(!ROOT){toast('Please pick a folder first.');return;}
+  setBtn('continue-btn',true,'Checking');
+  try{
+    // Try reading workspace.json
+    const raw=await readTxt(ROOT,'workspace.json');
+    if(raw){
+      let cfg;
+      try{cfg=JSON.parse(raw);}catch(e){cfg=null;}
+      if(cfg&&cfg.auth&&cfg.auth.user&&cfg.auth.hash){
+        auth=cfg.auth;
+        notebooks=cfg.notebooks||[];
+        tasks=cfg.tasks||[];
+        showStep('signin');
+        setBtn('continue-btn',false,'Continue →');
+        setTimeout(()=>document.getElementById('si-user').focus(),80);
+        return;
+      }
+    }
+    // No valid workspace.json → new workspace
+    showStep('create');
+    setBtn('continue-btn',false,'Continue →');
+    setTimeout(()=>document.getElementById('su-user').focus(),80);
+  }catch(e){
+    setBtn('continue-btn',false,'Continue →');
+    toast('Error reading folder: '+e.message);
+  }
+}
+
+// STEP 2 — create account
+async function createAccount(){
+  const user=document.getElementById('su-user').value.trim();
+  const pass=document.getElementById('su-pass').value;
+  const pass2=document.getElementById('su-pass2').value;
+  const errEl=document.getElementById('su-err');
+  errEl.textContent='';
+
+  if(!user){errEl.textContent='Username is required.';return;}
+  if(!pass){errEl.textContent='Password is required.';return;}
+  if(pass.length<4){errEl.textContent='Password must be at least 4 characters.';return;}
+  if(pass!==pass2){errEl.textContent='Passwords do not match.';return;}
+
+  setBtn('create-btn',true,'Creating');
+  try{
+    const hash=await sha256(pass+'_ws_salt');
+    auth={user,hash};
+    // Create folder structure
+    nbDir=await getDir(ROOT,'notebooks');
+    taskDir=await getDir(ROOT,'tasks');
+    // Write workspace.json
+    await writeTxt(ROOT,'workspace.json',JSON.stringify({auth,notebooks:[],tasks:[]},null,2));
+    // Write empty tasks.json
+    await writeTxt(taskDir,'tasks.json','[]');
+    notebooks=[];tasks=[];
+    setBtn('create-btn',false,'Create Account &amp; Open');
+    enterApp();
+  }catch(e){
+    setBtn('create-btn',false,'Create Account &amp; Open');
+    errEl.textContent='Error: '+e.message;
+    console.error(e);
+  }
+}
+
+// STEP 3 — sign in
+async function signIn(){
+  const user=document.getElementById('si-user').value.trim();
+  const pass=document.getElementById('si-pass').value;
+  const errEl=document.getElementById('si-err');
+  errEl.textContent='';
+
+  if(!user||!pass){errEl.textContent='All fields required.';return;}
+
+  setBtn('signin-btn',true,'Signing in');
+  try{
+    const hash=await sha256(pass+'_ws_salt');
+    if(user!==auth.user||hash!==auth.hash){
+      errEl.textContent='Incorrect username or password.';
+      setBtn('signin-btn',false,'Sign In');
+      return;
+    }
+    // Load dirs
+    nbDir=await getDir(ROOT,'notebooks');
+    taskDir=await getDir(ROOT,'tasks');
+    // Load tasks
+    const traw=await readTxt(taskDir,'tasks.json');
+    if(traw){try{tasks=JSON.parse(traw);}catch(e){tasks=[];}}
+    setBtn('signin-btn',false,'Sign In');
+    enterApp();
+  }catch(e){
+    setBtn('signin-btn',false,'Sign In');
+    errEl.textContent='Error: '+e.message;
+    console.error(e);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// ENTER APP
+// ═══════════════════════════════════════════════
+function enterApp(){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('bluebar').style.display='flex';
+  document.getElementById('topbar').style.display='flex';
+  document.getElementById('main-app').style.display='flex';
+  document.getElementById('bl-folder').textContent='📁 '+ROOT.name;
+  renderNbList();
+  renderTasks();
+  setupEditorEvents();
+  toast('Workspace opened ✓');
+}
+
+// ═══════════════════════════════════════════════
+// SAVE ALL TO DISK
+// ═══════════════════════════════════════════════
+async function saveAll(){
+  if(!ROOT)return;
+  try{
+    // Save current notebook
+    if(activeNbId)await saveCurrentNb();
+    // Save workspace index
+    await writeTxt(ROOT,'workspace.json',JSON.stringify({auth,notebooks,tasks},null,2));
+    // Save tasks
+    await writeTxt(taskDir,'tasks.json',JSON.stringify(tasks,null,2));
+    const t=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('ss').textContent='saved '+t;
+    toast('Saved to disk ✓');
+  }catch(e){
+    toast('Save failed: '+e.message);
+    console.error(e);
+  }
+}
+
+function schedSave(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(saveAll,1500);
+}
+
+// ═══════════════════════════════════════════════
+// NOTEBOOK — DISK OPERATIONS
+// ═══════════════════════════════════════════════
+async function getNbFolder(nb){
+  return await getDir(nbDir,nb.folder);
+}
+async function getNbImgFolder(nb){
+  const f=await getNbFolder(nb);
+  return await getDir(f,'images');
+}
+
+// Serialize editor → save relative image refs
+async function saveCurrentNb(){
+  const nb=notebooks.find(n=>n.id===activeNbId);
+  if(!nb)return;
+  const editor=document.getElementById('nb-editor');
+  const clone=editor.cloneNode(true);
+  // Replace blob URLs with relative filename refs
+  clone.querySelectorAll('img[data-iname]').forEach(img=>{
+    img.src='images/'+img.dataset.iname;
+    img.removeAttribute('data-blob');
+  });
+  const folder=await getNbFolder(nb);
+  await writeTxt(folder,'content.html',clone.innerHTML);
+}
+
+// Load notebook content from disk, restore images as blob URLs
+async function loadNbContent(nb){
+  const folder=await getNbFolder(nb);
+  const html=await readTxt(folder,'content.html')||'';
+  const editor=document.getElementById('nb-editor');
+  editor.innerHTML=html;
+  // Restore images
+  const imgFolder=await getNbImgFolder(nb);
+  const imgs=editor.querySelectorAll('img[data-iname]');
+  for(const img of imgs){
+    const name=img.dataset.iname;
+    const file=await readBin(imgFolder,name);
+    if(file){
+      const url=URL.createObjectURL(file);
+      img.src=url;img.dataset.blob=url;
+    }
+    wrapImg(img);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// NOTEBOOK — UI
+// ═══════════════════════════════════════════════
+async function newNotebook(){
+  const name=prompt('Notebook name:');
+  if(!name||!name.trim())return;
+  const title=name.trim();
+  const folder=sanitize(title)+'_'+Date.now().toString(36);
+  const id=genId();
+  const nb={id,title,folder};
+  notebooks.push(nb);
+  // Create folder + images subfolder + empty content
+  const f=await getNbFolder(nb);
+  await getDir(f,'images');
+  await writeTxt(f,'content.html','');
+  renderNbList();
+  await selectNb(id);
+  schedSave();
+}
+
+function renderNbList(){
+  const list=document.getElementById('nb-tl');
+  list.innerHTML='';
+  notebooks.forEach(nb=>{
+    const el=document.createElement('div');
+    el.className='nb-tab'+(nb.id===activeNbId?' active':'');
+    el.innerHTML=`<span style="font-size:11px">📓</span>
+      <span class="tn">${esc(nb.title)}</span>
+      <button class="td" onclick="delNb(event,'${nb.id}')">×</button>`;
+    el.addEventListener('click',()=>selectNb(nb.id));
+    list.appendChild(el);
+  });
+}
+
+async function selectNb(id){
+  if(activeNbId&&activeNbId!==id)await saveCurrentNb();
+  activeNbId=id;
+  const nb=notebooks.find(n=>n.id===id);
+  if(!nb)return;
+  document.getElementById('nb-inner').style.display='flex';
+  document.getElementById('nb-empty').style.display='none';
+  document.getElementById('nb-title').value=nb.title;
+  await loadNbContent(nb);
+  renderNbList();
+}
+
+function onTitleChange(){
+  if(!activeNbId)return;
+  const nb=notebooks.find(n=>n.id===activeNbId);
+  if(nb)nb.title=document.getElementById('nb-title').value||'Untitled';
+  renderNbList();
+  schedSave();
+}
+
+async function delNb(e,id){
+  e.stopPropagation();
+  if(!confirm('Remove this notebook from the list? (Folder stays on disk)'))return;
+  notebooks=notebooks.filter(n=>n.id!==id);
+  if(activeNbId===id){
+    activeNbId=null;
+    document.getElementById('nb-inner').style.display='none';
+    document.getElementById('nb-empty').style.display='flex';
+    document.getElementById('nb-editor').innerHTML='';
+  }
+  renderNbList();
+  schedSave();
+}
+
+function ec(cmd,val){
+  document.getElementById('nb-editor').focus();
+  document.execCommand(cmd,false,val||null);
+  schedSave();
+}
+
+// ═══════════════════════════════════════════════
+// IMAGE HANDLING
+// ═══════════════════════════════════════════════
+async function insertImageBlob(blob,type){
+  if(!activeNbId){toast('Select a notebook first.');return;}
+  const nb=notebooks.find(n=>n.id===activeNbId);
+  if(!nb)return;
+  const imgFolder=await getNbImgFolder(nb);
+  const name=genImgName(type);
+  // Save to disk
+  await writeBin(imgFolder,name,blob);
+  // Create img element with blob URL for display
+  const url=URL.createObjectURL(blob);
+  const img=document.createElement('img');
+  img.src=url;img.dataset.iname=name;img.dataset.blob=url;
+  img.style.width='300px';img.draggable=false;
+  const editor=document.getElementById('nb-editor');
+  editor.focus();
+  const wrap=wrapImg(img);
+  const sel=window.getSelection();
+  if(sel&&sel.rangeCount){
+    const range=sel.getRangeAt(0);
+    if(editor.contains(range.commonAncestorContainer)){
+      range.collapse(false);range.insertNode(wrap);
+      range.setStartAfter(wrap);sel.removeAllRanges();sel.addRange(range);
+    }else{editor.appendChild(wrap);}
+  }else{editor.appendChild(wrap);}
+  schedSave();
+}
+
+function onImgFileInput(e){
+  const f=e.target.files[0];if(!f)return;
+  insertImageBlob(f,f.type);
+  e.target.value='';
+}
+
+// ── Image Wrapper ──
+function wrapImg(img){
+  if(img.parentElement&&img.parentElement.classList.contains('iw'))
+    return img.parentElement;
+  const wrap=document.createElement('span');
+  wrap.className='iw';wrap.contentEditable='false';
+  // Toolbar
+  const tb=document.createElement('span');tb.className='itb';
+  tb.innerHTML=`<button class="itb-b" data-a="dup">⧉ Dup</button>
+    <button class="itb-b" data-a="crop">✂ Crop</button>
+    <button class="itb-b" data-a="del">✕ Del</button>`;
+  wrap.appendChild(tb);
+  wrap.appendChild(img);
+  // Resize handles
+  ['nw','ne','sw','se'].forEach(p=>{
+    const h=document.createElement('span');h.className='rh '+p;wrap.appendChild(h);
+    h.addEventListener('mousedown',e=>startResize(e,wrap,img,p));
+  });
+  // Select on click
+  wrap.addEventListener('mousedown',e=>{
+    if(e.target.classList.contains('itb-b')||e.target.classList.contains('rh'))return;
+    e.stopPropagation();selImg(wrap);
+  });
+  // Toolbar actions
+  tb.addEventListener('mousedown',e=>e.stopPropagation());
+  tb.addEventListener('click',e=>{
+    const btn=e.target.closest('[data-a]');if(!btn)return;
+    const a=btn.dataset.a;
+    if(a==='dup')dupImg(img);
+    if(a==='crop')cropImg(wrap,img);
+    if(a==='del')delImg(wrap,img);
+  });
+  setupDrag(wrap);
+  return wrap;
+}
+
+let selWrap=null;
+function selImg(w){
+  if(selWrap&&selWrap!==w)selWrap.classList.remove('sel');
+  selWrap=w;w.classList.add('sel');
+}
+document.addEventListener('mousedown',e=>{
+  if(selWrap&&!selWrap.contains(e.target)){selWrap.classList.remove('sel');selWrap=null;}
+});
+
+function startResize(e,wrap,img,corner){
+  e.preventDefault();e.stopPropagation();selImg(wrap);
+  const sx=e.clientX,sw=img.offsetWidth,sh=img.offsetHeight,asp=sw/sh;
+  const onMove=ev=>{
+    const dx=ev.clientX-sx;
+    const nw=Math.max(60,corner==='se'||corner==='ne'?sw+dx:sw-dx);
+    img.style.width=nw+'px';img.style.height=(nw/asp)+'px';
+  };
+  const onUp=()=>{document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);schedSave();};
+  document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+}
+
+function setupDrag(wrap){
+  let drag=false,ox=0,oy=0,ghost=null;
+  wrap.addEventListener('mousedown',e=>{
+    if(e.target.classList.contains('rh')||e.target.classList.contains('itb-b'))return;
+    if(e.button!==0||!wrap.classList.contains('sel'))return;
+    e.preventDefault();drag=true;
+    ox=e.clientX-wrap.getBoundingClientRect().left;
+    oy=e.clientY-wrap.getBoundingClientRect().top;
+    ghost=wrap.cloneNode(true);
+    ghost.style.cssText=`position:fixed;opacity:.45;pointer-events:none;z-index:1000;width:${wrap.offsetWidth}px`;
+    document.body.appendChild(ghost);
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!drag)return;ghost.style.left=(e.clientX-ox)+'px';ghost.style.top=(e.clientY-oy)+'px';
+  });
+  document.addEventListener('mouseup',e=>{
+    if(!drag)return;drag=false;ghost.remove();ghost=null;
+    const ed=document.getElementById('nb-editor');
+    const r=caretAt(e.clientX,e.clientY,ed);
+    if(r){wrap.remove();r.insertNode(wrap);}
+    schedSave();
+  });
+}
+
+function caretAt(x,y,ed){
+  if(document.caretRangeFromPoint){
+    const r=document.caretRangeFromPoint(x,y);
+    if(r&&ed.contains(r.commonAncestorContainer))return r;
+  }
+  return null;
+}
+
+async function dupImg(img){
+  const nb=notebooks.find(n=>n.id===activeNbId);if(!nb)return;
+  const imgFolder=await getNbImgFolder(nb);
+  const file=await readBin(imgFolder,img.dataset.iname);
+  if(!file)return;
+  await insertImageBlob(file,file.type);
+}
+
+async function delImg(wrap,img){
+  // Optionally remove file from disk
+  if(img.dataset.iname){
+    const nb=notebooks.find(n=>n.id===activeNbId);
+    if(nb){const f=await getNbImgFolder(nb);await delFile(f,img.dataset.iname);}
+  }
+  if(img.dataset.blob)URL.revokeObjectURL(img.dataset.blob);
+  wrap.remove();schedSave();
+}
+
+function cropImg(wrap,img){
+  wrap.classList.remove('sel');
+  const W=img.offsetWidth,H=img.offsetHeight;
+  const wr=wrap.getBoundingClientRect();
+  const ov=document.createElement('div');
+  ov.style.cssText=`position:fixed;left:${wr.left}px;top:${wr.top}px;width:${W}px;height:${H}px;
+    cursor:crosshair;z-index:999;background:rgba(0,0,0,.5)`;
+  const sel=document.createElement('div');
+  sel.style.cssText=`position:absolute;border:2px solid #fff;box-sizing:border-box;display:none`;
+  ov.appendChild(sel);document.body.appendChild(ov);
+  let sx=0,sy=0,ex=0,ey=0,drawing=false;
+  ov.addEventListener('mousedown',e=>{
+    drawing=true;sx=e.clientX-wr.left;sy=e.clientY-wr.top;
+    sel.style.display='block';sel.style.left=sx+'px';sel.style.top=sy+'px';
+    sel.style.width='0';sel.style.height='0';
+  });
+  ov.addEventListener('mousemove',e=>{
+    if(!drawing)return;ex=e.clientX-wr.left;ey=e.clientY-wr.top;
+    const x=Math.min(sx,ex),y=Math.min(sy,ey),w=Math.abs(ex-sx),h=Math.abs(ey-sy);
+    sel.style.left=x+'px';sel.style.top=y+'px';sel.style.width=w+'px';sel.style.height=h+'px';
+  });
+  ov.addEventListener('mouseup',async()=>{
+    if(!drawing)return;drawing=false;ov.remove();
+    const x=Math.min(sx,ex),y=Math.min(sy,ey),w=Math.abs(ex-sx),h=Math.abs(ey-sy);
+    if(w<5||h<5)return;
+    const scX=img.naturalWidth/W,scY=img.naturalHeight/H;
+    const cv=document.createElement('canvas');
+    cv.width=Math.round(w*scX);cv.height=Math.round(h*scY);
+    cv.getContext('2d').drawImage(img,x*scX,y*scY,w*scX,h*scY,0,0,cv.width,cv.height);
+    cv.toBlob(async blob=>{
+      if(!blob)return;
+      const nb=notebooks.find(n=>n.id===activeNbId);if(!nb)return;
+      const f=await getNbImgFolder(nb);
+      // Delete old file, save cropped
+      if(img.dataset.iname)await delFile(f,img.dataset.iname);
+      const name=genImgName('image/png');
+      await writeBin(f,name,blob);
+      const url=URL.createObjectURL(blob);
+      if(img.dataset.blob)URL.revokeObjectURL(img.dataset.blob);
+      img.src=url;img.dataset.iname=name;img.dataset.blob=url;
+      img.style.width=w+'px';img.style.height='';
+      schedSave();
+    },'image/png');
+  });
+  const onKey=e=>{if(e.key==='Escape'){ov.remove();document.removeEventListener('keydown',onKey);}};
+  document.addEventListener('keydown',onKey);
+}
+
+// ─ Editor paste/drop ─
+function setupEditorEvents(){
+  const ed=document.getElementById('nb-editor');
+  ed.addEventListener('paste',async e=>{
+    const items=e.clipboardData&&e.clipboardData.items;if(!items)return;
+    for(const item of items){
+      if(item.type.startsWith('image/')){
+        e.preventDefault();
+        await insertImageBlob(item.getAsFile(),item.type);return;
+      }
+    }
+    setTimeout(schedSave,10);
+  });
+  ed.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';});
+  ed.addEventListener('drop',e=>{
+    let handled=false;
+    for(const f of e.dataTransfer.files){
+      if(f.type.startsWith('image/')){handled=true;e.preventDefault();insertImageBlob(f,f.type);}
+    }
+    if(!handled)setTimeout(schedSave,10);
+  });
+  ed.addEventListener('input',schedSave);
+}
+
+// ═══════════════════════════════════════════════
+// TASKS
+// ═══════════════════════════════════════════════
+function addTask(){
+  const inp=document.getElementById('t-inp'),text=inp.value.trim();if(!text)return;
+  tasks.unshift({id:genId(),text,priority:document.getElementById('t-pri').value,
+    done:false,date:new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short'})});
+  inp.value='';renderTasks();schedSave();
+}
+function toggleTask(id){const t=tasks.find(t=>t.id===id);if(t)t.done=!t.done;renderTasks();schedSave();}
+function delTask(id){tasks=tasks.filter(t=>t.id!==id);renderTasks();schedSave();}
+function renderTasks(){
+  const pend=tasks.filter(t=>!t.done),done=tasks.filter(t=>t.done);
+  const pL={high:'High',med:'Normal',low:'Low'};
+  const pC={high:'hi',med:'md',low:'lo'};
+  const html=arr=>arr.map(t=>`
+    <div class="t-item${t.done?' done':''}">
+      <button class="t-chk" onclick="toggleTask('${t.id}')">${t.done?'✓':''}</button>
+      <div class="t-body">
+        <div class="t-txt">${esc(t.text)}</div>
+        <div class="t-meta">
+          <span class="t-tag ${pC[t.priority]}">${pL[t.priority]}</span>
+          <span class="t-date">${t.date}</span>
+        </div>
+      </div>
+      <button class="t-del" onclick="delTask('${t.id}')">×</button>
+    </div>`).join('');
+  document.getElementById('t-pend').innerHTML=html(pend);
+  document.getElementById('t-done').innerHTML=html(done);
+  document.getElementById('pend-sec').style.display=pend.length?'':'none';
+  document.getElementById('done-sec').style.display=done.length?'':'none';
+}
+
+// ═══════════════════════════════════════════════
+// MODE
+// ═══════════════════════════════════════════════
+function switchMode(m){
+  document.getElementById('notebook-view').style.display=m==='notebook'?'flex':'none';
+  document.getElementById('task-view').style.display=m==='tasks'?'flex':'none';
+  document.getElementById('btn-nb').classList.toggle('active',m==='notebook');
+  document.getElementById('btn-tk').classList.toggle('active',m==='tasks');
+}
+
+// ═══════════════════════════════════════════════
+// CHANGE PW / DELETE ACCOUNT
+// ═══════════════════════════════════════════════
+function openChangePw(){
+  ['cp-cur','cp-new','cp-con'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('cp-err').textContent='';
+  openMo('mo-pw');
+  setTimeout(()=>document.getElementById('cp-cur').focus(),60);
+}
+async function doChangePw(){
+  const cur=document.getElementById('cp-cur').value;
+  const nw=document.getElementById('cp-new').value;
+  const con=document.getElementById('cp-con').value;
+  const err=document.getElementById('cp-err');err.textContent='';
+  const curHash=await sha256(cur+'_ws_salt');
+  if(curHash!==auth.hash){err.textContent='Current password is incorrect.';return;}
+  if(nw.length<4){err.textContent='New password must be at least 4 characters.';return;}
+  if(nw!==con){err.textContent='Passwords do not match.';return;}
+  auth.hash=await sha256(nw+'_ws_salt');
+  await saveAll();closeMo('mo-pw');toast('Password updated ✓');
+}
+
+function openDeleteAcc(){
+  document.getElementById('del-pw').value='';
+  document.getElementById('del-err').textContent='';
+  openMo('mo-del');
+  setTimeout(()=>document.getElementById('del-pw').focus(),60);
+}
+async function doDelete(){
+  const pw=document.getElementById('del-pw').value;
+  const err=document.getElementById('del-err');
+  const hash=await sha256(pw+'_ws_salt');
+  if(hash!==auth.hash){err.textContent='Incorrect password.';return;}
+  await writeTxt(ROOT,'workspace.json',JSON.stringify({notebooks:[],tasks:[]},null,2));
+  closeMo('mo-del');toast('Account removed. Files on disk intact.');
+  setTimeout(()=>location.reload(),1800);
+}
+
+function openMo(id){document.getElementById(id).classList.add('open');}
+function closeMo(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.mo').forEach(el=>{
+  el.addEventListener('click',e=>{if(e.target===el)closeMo(el.id);});
+});
+
+// ═══════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();if(ROOT)saveAll();}
+  if(e.key==='Escape')document.querySelectorAll('.mo.open').forEach(m=>closeMo(m.id));
+});
+
+// ═══════════════════════════════════════════════
+// BROWSER SUPPORT CHECK
+// ═══════════════════════════════════════════════
+if(!window.showDirectoryPicker){
+  document.getElementById('pick-btn').innerHTML=
+    `<div class="fi">⚠️</div>
+     <div class="ft">Browser Not Supported</div>
+     <div class="fs">Please use <b>Chrome</b> or <b>Edge</b> (version 86+).<br>Firefox does not support File System Access API yet.</div>`;
+  document.getElementById('pick-btn').style.cursor='default';
+  document.getElementById('pick-btn').onclick=null;
+}
+</script>
+</body>
+</html>
