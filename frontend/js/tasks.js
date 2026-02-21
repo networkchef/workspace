@@ -1,6 +1,6 @@
-/* ══════════════════════════════════════
-   tasks.js — task manager logic
-   ══════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   tasks.js  —  task manager logic
+   ══════════════════════════════════════════ */
 
 let tasks = [];
 
@@ -8,15 +8,12 @@ async function loadTasks() {
   try {
     tasks = await apiGetTasks();
     renderTasks();
-  } catch (e) {
-    toast('Failed to load tasks: ' + e.message);
-  }
+  } catch (e) { toast('Failed to load tasks: ' + e.message); }
 }
 
 async function addTask() {
-  const inp = document.getElementById('t-inp');
-  const text = inp.value.trim();
-  if (!text) return;
+  const inp  = document.getElementById('t-inp');
+  const text = inp.value.trim(); if (!text) return;
   const priority = document.getElementById('t-pri').value;
   try {
     const task = await apiAddTask(text, priority);
@@ -45,10 +42,12 @@ async function delTask(id) {
 
 function renderTasks() {
   const pend = tasks.filter(t => !t.done);
-  const done = tasks.filter(t => t.done);
+  const done = tasks.filter(t =>  t.done);
+
   const pL = { high: 'High', med: 'Normal', low: 'Low' };
-  const pC = { high: 'hi', med: 'md', low: 'lo' };
-  const html = arr => arr.map(t => `
+  const pC = { high: 'hi',   med: 'md',     low: 'lo'  };
+
+  const row = t => `
     <div class="t-item${t.done ? ' done' : ''}">
       <button class="t-chk" onclick="toggleTask('${t.id}')">${t.done ? '&#x2713;' : ''}</button>
       <div class="t-body">
@@ -58,10 +57,11 @@ function renderTasks() {
           <span class="t-date">${t.date || ''}</span>
         </div>
       </div>
-      <button class="t-del" onclick="delTask('${t.id}')">&#x00D7;</button>
-    </div>`).join('');
-  document.getElementById('t-pend').innerHTML = html(pend);
-  document.getElementById('t-done').innerHTML = html(done);
+      <button class="t-del" onclick="delTask('${t.id}')">&#xD7;</button>
+    </div>`;
+
+  document.getElementById('t-pend').innerHTML = pend.map(row).join('');
+  document.getElementById('t-done').innerHTML = done.map(row).join('');
   document.getElementById('pend-sec').style.display = pend.length ? '' : 'none';
   document.getElementById('done-sec').style.display = done.length ? '' : 'none';
 }

@@ -1,9 +1,9 @@
-/* ══════════════════════════════════════
-   notebook.js — notebook editor logic
-   ══════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   notebook.js  —  notebook editor logic
+   ══════════════════════════════════════════ */
 
-let notebooks = [];
-let activeNbId = null;
+let notebooks   = [];
+let activeNbId  = null;
 let nbSaveTimer = null;
 
 function genImgName(type) {
@@ -11,14 +11,12 @@ function genImgName(type) {
   return 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5) + '.' + ext;
 }
 
-// ── List ──
+// ── List ──────────────────────────────────────────────────────────────────────
 async function loadNotebooks() {
   try {
     notebooks = await apiGetNotebooks();
     renderNbList();
-  } catch (e) {
-    toast('Failed to load notebooks: ' + e.message);
-  }
+  } catch (e) { toast('Failed to load notebooks: ' + e.message); }
 }
 
 function renderNbList() {
@@ -27,9 +25,10 @@ function renderNbList() {
   notebooks.forEach(nb => {
     const el = document.createElement('div');
     el.className = 'nb-tab' + (nb.id === activeNbId ? ' active' : '');
-    el.innerHTML = `<span style="font-size:11px">&#x1F4D3;</span>
-      <span class="tn">${esc(nb.title)}</span>
-      <button class="td" onclick="delNb(event,'${nb.id}')">&#x00D7;</button>`;
+    el.innerHTML =
+      `<span style="font-size:11px">&#x1F4D3;</span>` +
+      `<span class="tn">${esc(nb.title)}</span>` +
+      `<button class="td" onclick="delNb(event,'${nb.id}')">&#xD7;</button>`;
     el.addEventListener('click', () => selectNb(nb.id));
     list.appendChild(el);
   });
@@ -52,16 +51,16 @@ async function selectNb(id) {
   const nb = notebooks.find(n => n.id === id);
   if (!nb) return;
 
-  document.getElementById('nb-inner').style.display = 'flex';
-  document.getElementById('nb-empty').style.display = 'none';
-  document.getElementById('nb-title').value = nb.title;
+  document.getElementById('nb-inner').style.display  = 'flex';
+  document.getElementById('nb-empty').style.display  = 'none';
+  document.getElementById('nb-title').value          = nb.title;
   renderNbList();
 
   try {
     const { html } = await apiGetContent(id);
     const editor = document.getElementById('nb-editor');
     editor.innerHTML = html || '';
-    // Restore image src using API URLs (images stored on server)
+    // Restore images: replace stored relative path with API URL + token
     editor.querySelectorAll('img[data-iname]').forEach(img => {
       img.src = apiImageUrl(id, img.dataset.iname);
       wrapImg(img);
@@ -73,8 +72,8 @@ async function saveCurrentNb() {
   if (!activeNbId) return;
   try {
     const editor = document.getElementById('nb-editor');
-    // Replace live src with relative refs before saving
-    const clone = editor.cloneNode(true);
+    const clone  = editor.cloneNode(true);
+    // Strip live API URLs — store only the filename reference
     clone.querySelectorAll('img[data-iname]').forEach(img => {
       img.src = 'images/' + img.dataset.iname;
     });
@@ -86,13 +85,13 @@ async function saveCurrentNb() {
 
 function onTitleChange() {
   if (!activeNbId) return;
-  const nb = notebooks.find(n => n.id === activeNbId);
+  const nb    = notebooks.find(n => n.id === activeNbId);
   const title = document.getElementById('nb-title').value || 'Untitled';
   if (nb) nb.title = title;
   renderNbList();
   clearTimeout(nbSaveTimer);
   nbSaveTimer = setTimeout(async () => {
-    try { await apiUpdateNotebook(activeNbId, title); } catch (e) {}
+    try { await apiUpdateNotebook(activeNbId, title); } catch {}
     await saveCurrentNb();
   }, 1200);
 }
@@ -107,7 +106,7 @@ async function delNb(e, id) {
       activeNbId = null;
       document.getElementById('nb-inner').style.display = 'none';
       document.getElementById('nb-empty').style.display = 'flex';
-      document.getElementById('nb-editor').innerHTML = '';
+      document.getElementById('nb-editor').innerHTML    = '';
     }
     renderNbList();
   } catch (e) { toast('Error: ' + e.message); }
@@ -124,25 +123,24 @@ function schedNbSave() {
   nbSaveTimer = setTimeout(saveCurrentNb, 1500);
 }
 
-// ── Images ──
+// ── Images ────────────────────────────────────────────────────────────────────
 async function insertImageBlob(blob, type) {
   if (!activeNbId) { toast('Select a notebook first.'); return; }
   try {
     const name = genImgName(type);
-    // Convert to base64
-    const b64 = await blobToBase64(blob);
+    const b64  = await blobToBase64(blob);
     await apiUploadImage(activeNbId, name, b64.split(',')[1]);
 
-    const img = document.createElement('img');
-    img.src = apiImageUrl(activeNbId, name);
+    const img       = document.createElement('img');
+    img.src         = apiImageUrl(activeNbId, name);
     img.dataset.iname = name;
     img.style.width = '300px';
-    img.draggable = false;
+    img.draggable   = false;
 
     const editor = document.getElementById('nb-editor');
     editor.focus();
     const wrap = wrapImg(img);
-    const sel = window.getSelection();
+    const sel  = window.getSelection();
     if (sel && sel.rangeCount) {
       const range = sel.getRangeAt(0);
       if (editor.contains(range.commonAncestorContainer)) {
@@ -157,7 +155,7 @@ async function insertImageBlob(blob, type) {
 function blobToBase64(blob) {
   return new Promise((res, rej) => {
     const r = new FileReader();
-    r.onload = () => res(r.result);
+    r.onload  = () => res(r.result);
     r.onerror = () => rej(new Error('Read failed'));
     r.readAsDataURL(blob);
   });
@@ -169,20 +167,26 @@ function onImgFileInput(e) {
   e.target.value = '';
 }
 
-// ── Image Wrapper ──
+// ── Image Wrapper ─────────────────────────────────────────────────────────────
 function wrapImg(img) {
   if (img.parentElement && img.parentElement.classList.contains('iw')) return img.parentElement;
   const wrap = document.createElement('span');
-  wrap.className = 'iw'; wrap.contentEditable = 'false';
+  wrap.className      = 'iw';
+  wrap.contentEditable = 'false';
+
   const tb = document.createElement('span'); tb.className = 'itb';
-  tb.innerHTML = `<button class="itb-b" data-a="dup">Dup</button>
-    <button class="itb-b" data-a="crop">Crop</button>
-    <button class="itb-b" data-a="del">Del</button>`;
-  wrap.appendChild(tb); wrap.appendChild(img);
+  tb.innerHTML =
+    `<button class="itb-b" data-a="dup">Dup</button>` +
+    `<button class="itb-b" data-a="crop">Crop</button>` +
+    `<button class="itb-b" data-a="del">Del</button>`;
+  wrap.appendChild(tb);
+  wrap.appendChild(img);
+
   ['nw','ne','sw','se'].forEach(p => {
     const h = document.createElement('span'); h.className = 'rh ' + p; wrap.appendChild(h);
     h.addEventListener('mousedown', e => startResize(e, wrap, img, p));
   });
+
   wrap.addEventListener('mousedown', e => {
     if (e.target.classList.contains('itb-b') || e.target.classList.contains('rh')) return;
     e.stopPropagation(); selImg(wrap);
@@ -191,10 +195,11 @@ function wrapImg(img) {
   tb.addEventListener('click', e => {
     const btn = e.target.closest('[data-a]'); if (!btn) return;
     const a = btn.dataset.a;
-    if (a === 'dup') dupImg(img);
+    if (a === 'dup')  dupImg(img);
     if (a === 'crop') cropImg(wrap, img);
-    if (a === 'del') delImg(wrap, img);
+    if (a === 'del')  delImg(wrap, img);
   });
+
   setupDrag(wrap);
   return wrap;
 }
@@ -216,8 +221,13 @@ function startResize(e, wrap, img, corner) {
     const nw = Math.max(60, corner === 'se' || corner === 'ne' ? sw + dx : sw - dx);
     img.style.width = nw + 'px'; img.style.height = (nw / asp) + 'px';
   };
-  const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); schedNbSave(); };
-  document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    schedNbSave();
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 }
 
 function setupDrag(wrap) {
@@ -233,12 +243,14 @@ function setupDrag(wrap) {
     document.body.appendChild(ghost);
   });
   document.addEventListener('mousemove', e => {
-    if (!drag) return; ghost.style.left = (e.clientX - ox) + 'px'; ghost.style.top = (e.clientY - oy) + 'px';
+    if (!drag) return;
+    ghost.style.left = (e.clientX - ox) + 'px';
+    ghost.style.top  = (e.clientY - oy) + 'px';
   });
   document.addEventListener('mouseup', e => {
     if (!drag) return; drag = false; ghost.remove(); ghost = null;
     const ed = document.getElementById('nb-editor');
-    const r = caretAt(e.clientX, e.clientY, ed);
+    const r  = caretAt(e.clientX, e.clientY, ed);
     if (r) { wrap.remove(); r.insertNode(wrap); }
     schedNbSave();
   });
@@ -254,11 +266,8 @@ function caretAt(x, y, ed) {
 
 async function dupImg(img) {
   if (!activeNbId) return;
-  // Fetch the image blob from server
   try {
-    const res = await fetch(apiImageUrl(activeNbId, img.dataset.iname), {
-      headers: { 'Authorization': 'Bearer ' + getToken() }
-    });
+    const res  = await fetch(apiImageUrl(activeNbId, img.dataset.iname));
     const blob = await res.blob();
     await insertImageBlob(blob, blob.type);
   } catch (e) { toast('Duplicate failed: ' + e.message); }
@@ -266,7 +275,7 @@ async function dupImg(img) {
 
 async function delImg(wrap, img) {
   if (img.dataset.iname && activeNbId) {
-    try { await apiDeleteImage(activeNbId, img.dataset.iname); } catch (e) {}
+    try { await apiDeleteImage(activeNbId, img.dataset.iname); } catch {}
   }
   wrap.remove(); schedNbSave();
 }
@@ -276,10 +285,13 @@ function cropImg(wrap, img) {
   const W = img.offsetWidth, H = img.offsetHeight;
   const wr = wrap.getBoundingClientRect();
   const ov = document.createElement('div');
-  ov.style.cssText = `position:fixed;left:${wr.left}px;top:${wr.top}px;width:${W}px;height:${H}px;cursor:crosshair;z-index:999;background:rgba(0,0,0,.5)`;
+  ov.style.cssText =
+    `position:fixed;left:${wr.left}px;top:${wr.top}px;width:${W}px;height:${H}px;` +
+    `cursor:crosshair;z-index:999;background:rgba(0,0,0,.5)`;
   const sel = document.createElement('div');
   sel.style.cssText = `position:absolute;border:2px solid #fff;box-sizing:border-box;display:none`;
   ov.appendChild(sel); document.body.appendChild(ov);
+
   let sx = 0, sy = 0, ex = 0, ey = 0, drawing = false;
   ov.addEventListener('mousedown', e => {
     drawing = true; sx = e.clientX - wr.left; sy = e.clientY - wr.top;
@@ -287,36 +299,40 @@ function cropImg(wrap, img) {
     sel.style.width = '0'; sel.style.height = '0';
   });
   ov.addEventListener('mousemove', e => {
-    if (!drawing) return; ex = e.clientX - wr.left; ey = e.clientY - wr.top;
-    const x = Math.min(sx, ex), y = Math.min(sy, ey), w = Math.abs(ex - sx), h = Math.abs(ey - sy);
-    sel.style.left = x + 'px'; sel.style.top = y + 'px'; sel.style.width = w + 'px'; sel.style.height = h + 'px';
+    if (!drawing) return;
+    ex = e.clientX - wr.left; ey = e.clientY - wr.top;
+    const x = Math.min(sx,ex), y = Math.min(sy,ey), w = Math.abs(ex-sx), h = Math.abs(ey-sy);
+    sel.style.left = x+'px'; sel.style.top = y+'px'; sel.style.width = w+'px'; sel.style.height = h+'px';
   });
   ov.addEventListener('mouseup', async () => {
     if (!drawing) return; drawing = false; ov.remove();
-    const x = Math.min(sx, ex), y = Math.min(sy, ey), w = Math.abs(ex - sx), h = Math.abs(ey - sy);
+    const x = Math.min(sx,ex), y = Math.min(sy,ey), w = Math.abs(ex-sx), h = Math.abs(ey-sy);
     if (w < 5 || h < 5) return;
     const scX = img.naturalWidth / W, scY = img.naturalHeight / H;
-    const cv = document.createElement('canvas');
-    cv.width = Math.round(w * scX); cv.height = Math.round(h * scY);
-    cv.getContext('2d').drawImage(img, x * scX, y * scY, w * scX, h * scY, 0, 0, cv.width, cv.height);
+    const cv  = document.createElement('canvas');
+    cv.width  = Math.round(w * scX); cv.height = Math.round(h * scY);
+    cv.getContext('2d').drawImage(img, x*scX, y*scY, w*scX, h*scY, 0, 0, cv.width, cv.height);
     cv.toBlob(async blob => {
       if (!blob || !activeNbId) return;
       try {
         if (img.dataset.iname) await apiDeleteImage(activeNbId, img.dataset.iname);
         const name = genImgName('image/png');
-        const b64 = await blobToBase64(blob);
+        const b64  = await blobToBase64(blob);
         await apiUploadImage(activeNbId, name, b64.split(',')[1]);
-        img.src = apiImageUrl(activeNbId, name);
+        img.src           = apiImageUrl(activeNbId, name);
         img.dataset.iname = name;
-        img.style.width = w + 'px'; img.style.height = '';
+        img.style.width   = w + 'px'; img.style.height = '';
         schedNbSave();
       } catch (e) { toast('Crop save failed: ' + e.message); }
     }, 'image/png');
   });
-  const onKey = e => { if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', onKey); } };
+  const onKey = e => {
+    if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', onKey); }
+  };
   document.addEventListener('keydown', onKey);
 }
 
+// ── Editor events (paste / drag-drop) ────────────────────────────────────────
 function setupEditorEvents() {
   const ed = document.getElementById('nb-editor');
   ed.addEventListener('paste', async e => {

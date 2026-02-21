@@ -5,14 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Workspace</title>
 <link rel="stylesheet" href="css/style.css">
-<!-- Set your backend URL below. Change before deploying to Cloudflare. -->
+<!--
+  ╔══════════════════════════════════════════╗
+  ║  Change this URL to your server before   ║
+  ║  deploying to Cloudflare Pages.          ║
+  ╚══════════════════════════════════════════╝
+-->
 <script>window.WS_API_URL = 'http://YOUR_SERVER_IP:3001/api';</script>
 </head>
 <body>
 
-<!-- ══════════════════════════
+<!-- ═══════════════════════════════════════════
      AUTH SCREEN
-     ══════════════════════════ -->
+     ═══════════════════════════════════════════ -->
 <div id="auth-screen">
   <div class="auth-card">
 
@@ -21,83 +26,91 @@
       <span class="logo-sub">Personal Notebook &amp; Tasks</span>
     </div>
 
-    <!-- Tab switcher -->
     <div class="auth-tab-row">
       <button class="auth-tab active" id="tab-signin" onclick="showAuthTab('signin')">Sign In</button>
-      <button class="auth-tab" id="tab-signup" onclick="showAuthTab('signup')">Sign Up</button>
+      <button class="auth-tab"        id="tab-signup" onclick="showAuthTab('signup')">Sign Up</button>
     </div>
 
-    <!-- Sign In pane -->
-    <div id="pane-signin">
-      <div style="display:flex;flex-direction:column;gap:12px">
-        <div class="auth-field">
-          <div class="auth-label">Username</div>
-          <input class="auth-input" id="si-user" type="text" placeholder="your username"
-                 autocomplete="username">
-        </div>
-        <div class="auth-field">
-          <div class="auth-label">Password</div>
-          <input class="auth-input" id="si-pass" type="password" placeholder="&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;"
-                 autocomplete="current-password"
-                 onkeydown="if(event.key==='Enter')signIn()">
-        </div>
-        <div class="auth-error" id="si-err"></div>
-        <button class="auth-btn" id="signin-btn" onclick="signIn()">Sign In</button>
+    <!-- Sign In -->
+    <div class="auth-pane" id="pane-signin">
+      <div class="auth-field">
+        <div class="auth-label">Username</div>
+        <input class="auth-input" id="si-user" type="text"
+               placeholder="your username" autocomplete="username">
       </div>
+      <div class="auth-field">
+        <div class="auth-label">Password</div>
+        <input class="auth-input" id="si-pass" type="password"
+               placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+               autocomplete="current-password"
+               onkeydown="if(event.key==='Enter')signIn()">
+      </div>
+      <div class="auth-error" id="si-err"></div>
+      <button class="auth-btn" id="signin-btn" onclick="signIn()">Sign In</button>
     </div>
 
-    <!-- Sign Up pane -->
-    <div id="pane-signup" style="display:none">
-      <div style="display:flex;flex-direction:column;gap:12px">
-        <div class="auth-field">
-          <div class="auth-label">Username (3&ndash;32 chars, letters/numbers/_)</div>
-          <input class="auth-input" id="su-user" type="text" placeholder="choose a username"
-                 autocomplete="username">
-        </div>
-        <div class="auth-field">
-          <div class="auth-label">Password (min 4 characters)</div>
-          <input class="auth-input" id="su-pass" type="password" placeholder="&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;"
-                 autocomplete="new-password">
-        </div>
-        <div class="auth-field">
-          <div class="auth-label">Confirm Password</div>
-          <input class="auth-input" id="su-pass2" type="password" placeholder="&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;"
-                 autocomplete="new-password"
-                 onkeydown="if(event.key==='Enter')signUp()">
-        </div>
-        <div class="auth-error" id="su-err"></div>
-        <button class="auth-btn" id="signup-btn" onclick="signUp()">Create Account</button>
+    <!-- Sign Up -->
+    <div class="auth-pane" id="pane-signup" style="display:none">
+      <div class="auth-field">
+        <div class="auth-label">Username &mdash; 3&ndash;32 chars, letters / numbers / _</div>
+        <input class="auth-input" id="su-user" type="text"
+               placeholder="choose a username" autocomplete="username">
       </div>
+      <div class="auth-field">
+        <div class="auth-label">Password &mdash; min 4 characters</div>
+        <input class="auth-input" id="su-pass" type="password"
+               placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+               autocomplete="new-password">
+      </div>
+      <div class="auth-field">
+        <div class="auth-label">Confirm Password</div>
+        <input class="auth-input" id="su-pass2" type="password"
+               placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+               autocomplete="new-password"
+               onkeydown="if(event.key==='Enter')signUp()">
+      </div>
+      <div class="auth-error" id="su-err"></div>
+      <button class="auth-btn" id="signup-btn" onclick="signUp()">Create Account</button>
     </div>
 
   </div>
 </div>
 
-<!-- ══════════════════════════
+<!-- ═══════════════════════════════════════════
      TOP BAR
-     ══════════════════════════ -->
+     ═══════════════════════════════════════════ -->
 <div class="topbar" id="topbar" style="display:none">
   <span class="app-title">WORKSPACE</span>
-  <button class="mode-btn active" id="btn-nb" onclick="switchMode('notebook')">&#x1F4D3; Notebook</button>
-  <button class="mode-btn" id="btn-tk" onclick="switchMode('tasks')">&#x2713; Tasks</button>
+
+  <button class="mode-btn active" id="btn-nb" onclick="switchMode('notebook')">
+    &#x1F4D3;&nbsp; Notebook
+  </button>
+  <button class="mode-btn" id="btn-tk" onclick="switchMode('tasks')">
+    &#x2713;&nbsp; Tasks
+  </button>
+
   <span class="tb-sp"></span>
   <span class="ss" id="ss"></span>
+
   <span class="tb-user" id="tb-user"></span>
+
   <div class="th-tog" onclick="toggleTheme()">
     <span class="th-lbl" id="th-lbl">Light</span>
     <div class="tog-tr" id="tog-tr"><div class="tog-th"></div></div>
   </div>
-  <button class="tb-btn" onclick="openChangePw()">&#x1F511; Password</button>
-  <button class="tb-btn danger" onclick="logout()">&#x2192; Logout</button>
+
+  <button class="tb-btn" onclick="openChangePw()">&#x1F511;&nbsp;Password</button>
+  <button class="tb-btn danger" onclick="logout()">&#x2192;&nbsp;Logout</button>
 </div>
 
-<!-- ══════════════════════════
+<!-- ═══════════════════════════════════════════
      MAIN APP
-     ══════════════════════════ -->
+     ═══════════════════════════════════════════ -->
 <div class="main" id="main-app" style="display:none">
 
-  <!-- NOTEBOOK -->
+  <!-- ── NOTEBOOK VIEW ── -->
   <div id="notebook-view">
+
     <div class="nb-sidebar">
       <div class="nb-sh">
         <span class="nb-st">Notebooks</span>
@@ -107,10 +120,13 @@
     </div>
 
     <div class="nb-ed">
-      <!-- Editor (hidden until notebook selected) -->
+
+      <!-- Editor pane -->
       <div id="nb-inner" style="display:none;flex-direction:column;flex:1;overflow:hidden">
         <div class="nb-eh">
-          <input class="nb-ti" id="nb-title" placeholder="Notebook title&hellip;" oninput="onTitleChange()">
+          <input class="nb-ti" id="nb-title"
+                 placeholder="Notebook title&hellip;"
+                 oninput="onTitleChange()">
         </div>
         <div class="nb-tb">
           <button class="tb-b" onclick="ec('bold')"><b>B</b></button>
@@ -125,32 +141,41 @@
           <button class="tb-b" onclick="ec('formatBlock','blockquote')">&ldquo;&rdquo;</button>
           <button class="tb-b" onclick="ec('formatBlock','pre')">Code</button>
           <span class="tb-s"></span>
-          <button class="tb-b" onclick="document.getElementById('img-input').click()">&#x1F5BC; Image</button>
+          <button class="tb-b" onclick="document.getElementById('img-input').click()">
+            &#x1F5BC; Image
+          </button>
           <button class="tb-b" onclick="ec('insertHTML','<hr>')">&#x2014; Line</button>
         </div>
         <div class="nb-hint">
-          Ctrl+V to paste image &middot; drag image file &middot; click image to resize/crop/duplicate &middot; Ctrl+S to save
+          Ctrl+V paste image &middot; drag &amp; drop image file &middot;
+          click image to resize / crop / duplicate &middot; Ctrl+S save
         </div>
         <div class="nb-cnt">
-          <div class="nb-ca" id="nb-editor" contenteditable="true" spellcheck="true"></div>
+          <div class="nb-ca" id="nb-editor"
+               contenteditable="true" spellcheck="true"></div>
         </div>
       </div>
 
       <!-- Empty state -->
       <div id="nb-empty" class="nb-empty">
-        <div style="font-size:32px">&#x1F4D3;</div>
+        <div style="font-size:34px">&#x1F4D3;</div>
         <div>No notebook selected</div>
-        <div style="font-size:10px;margin-top:2px">Click + to create a notebook</div>
+        <div style="font-size:10px;margin-top:3px;letter-spacing:.5px">
+          Click + to create a notebook
+        </div>
       </div>
+
     </div>
   </div>
 
-  <!-- TASKS -->
+  <!-- ── TASK VIEW ── -->
   <div id="task-view">
     <div class="tl">
       <div class="tm">
+
         <div class="ta-box">
-          <input class="ta-inp" id="t-inp" placeholder="Add a task&hellip;"
+          <input class="ta-inp" id="t-inp"
+                 placeholder="Add a task&hellip;"
                  onkeydown="if(event.key==='Enter')addTask()">
           <select class="ta-sel" id="t-pri">
             <option value="med">Normal</option>
@@ -169,15 +194,16 @@
           <div class="ts-lbl">Completed</div>
           <div class="t-list" id="t-done"></div>
         </div>
+
       </div>
     </div>
   </div>
 
 </div>
 
-<!-- ══════════════════════════
+<!-- ═══════════════════════════════════════════
      MODALS
-     ══════════════════════════ -->
+     ═══════════════════════════════════════════ -->
 
 <!-- Change Password -->
 <div class="mo" id="mo-pw">
@@ -199,7 +225,7 @@
     </div>
     <div class="m-err" id="cp-err"></div>
     <div class="ma">
-      <button class="m-btn" onclick="closeMo('mo-pw')">Cancel</button>
+      <button class="m-btn"    onclick="closeMo('mo-pw')">Cancel</button>
       <button class="m-btn pr" onclick="doChangePw()">Update</button>
     </div>
   </div>
@@ -211,9 +237,9 @@
 <!-- Hidden image file input -->
 <input type="file" id="img-input" accept="image/*" onchange="onImgFileInput(event)">
 
-<!-- ══════════════════════════
-     SCRIPTS (order matters)
-     ══════════════════════════ -->
+<!-- ═══════════════════════════════════════════
+     SCRIPTS  (order matters)
+     ═══════════════════════════════════════════ -->
 <script src="js/api.js"></script>
 <script src="js/notebook.js"></script>
 <script src="js/tasks.js"></script>

@@ -1,15 +1,14 @@
 [Unit]
-Description=Workspace Backend API
+Description=Workspace FastAPI Backend
 After=network.target
 
 [Service]
 Type=simple
 User=www-data
 WorkingDirectory=/opt/workspace-backend
-ExecStart=/usr/bin/node server.js
+ExecStart=/opt/workspace-backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 3001 --workers 2
 Restart=on-failure
 RestartSec=5
-Environment=NODE_ENV=production
 EnvironmentFile=/opt/workspace-backend/.env
 StandardOutput=journal
 StandardError=journal
