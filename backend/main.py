@@ -12,6 +12,7 @@ from config import settings
 from routes.auth import router as auth_router
 from routes.notebooks import router as notebook_router
 from routes.tasks import router as task_router
+from routes.export import router as export_router
 
 # ── Rate limiter ──────────────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
@@ -38,10 +39,10 @@ app.add_middleware(
 )
 
 # ── Routers ──────────────────────────────────────────────────────────────────
-app.include_router(auth_router, prefix="/api")
+app.include_router(auth_router,     prefix="/api")
 app.include_router(notebook_router, prefix="/api")
-app.include_router(task_router, prefix="/api")
-
+app.include_router(task_router,     prefix="/api")
+app.include_router(export_router,   prefix="/api")
 
 # ── Health ────────────────────────────────────────────────────────────────────
 @app.get("/api/health", tags=["health"])

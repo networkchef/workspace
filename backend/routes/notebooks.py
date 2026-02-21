@@ -45,6 +45,7 @@ MIME_MAP = {
 
 class NotebookCreate(BaseModel):
     title: str
+    parent_id: str | None = None
 
 
 class NotebookUpdate(BaseModel):
@@ -74,6 +75,7 @@ async def create_notebook(body: NotebookCreate, username: str = Depends(get_curr
     nb = {
         "id": str(uuid.uuid4()),
         "title": body.title.strip(),
+        "parentId": body.parent_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     index = await read_notebook_index(username)

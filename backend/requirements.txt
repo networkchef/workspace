@@ -7,3 +7,5 @@ aiofiles==23.2.1
 pydantic==2.7.1
 pydantic-settings==2.2.1
 slowapi==0.1.9
+python-docx==1.1.2
+beautifulsoup4==4.12.3

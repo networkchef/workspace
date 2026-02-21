@@ -4,14 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Workspace</title>
+<!-- Base styles -->
 <link rel="stylesheet" href="css/style.css">
-<!--
-  ╔══════════════════════════════════════════╗
-  ║  Change this URL to your server before   ║
-  ║  deploying to Cloudflare Pages.          ║
-  ╚══════════════════════════════════════════╝
--->
-<script>window.WS_API_URL = 'https://api.mrkumar.online/api';</script>
+<!-- Notebook-specific styles -->
+<link rel="stylesheet" href="css/notebook.css">
+<!-- Pyodide (Python in browser) — loaded lazily on first Python run -->
+<script>window.WS_API_URL = 'https://api.mrkumar.online:3001/api';</script>
 </head>
 <body>
 
@@ -20,7 +18,6 @@
      ═══════════════════════════════════════════ -->
 <div id="auth-screen">
   <div class="auth-card">
-
     <div class="auth-logo">
       WORKSPACE
       <span class="logo-sub">Personal Notebook &amp; Tasks</span>
@@ -35,15 +32,12 @@
     <div class="auth-pane" id="pane-signin">
       <div class="auth-field">
         <div class="auth-label">Username</div>
-        <input class="auth-input" id="si-user" type="text"
-               placeholder="your username" autocomplete="username">
+        <input class="auth-input" id="si-user" type="text" placeholder="your username" autocomplete="username">
       </div>
       <div class="auth-field">
         <div class="auth-label">Password</div>
-        <input class="auth-input" id="si-pass" type="password"
-               placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
-               autocomplete="current-password"
-               onkeydown="if(event.key==='Enter')signIn()">
+        <input class="auth-input" id="si-pass" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+               autocomplete="current-password" onkeydown="if(event.key==='Enter')signIn()">
       </div>
       <div class="auth-error" id="si-err"></div>
       <button class="auth-btn" id="signin-btn" onclick="signIn()">Sign In</button>
@@ -52,27 +46,21 @@
     <!-- Sign Up -->
     <div class="auth-pane" id="pane-signup" style="display:none">
       <div class="auth-field">
-        <div class="auth-label">Username &mdash; 3&ndash;32 chars, letters / numbers / _</div>
-        <input class="auth-input" id="su-user" type="text"
-               placeholder="choose a username" autocomplete="username">
+        <div class="auth-label">Username &mdash; 3&ndash;32 chars, letters/numbers/_</div>
+        <input class="auth-input" id="su-user" type="text" placeholder="choose a username" autocomplete="username">
       </div>
       <div class="auth-field">
         <div class="auth-label">Password &mdash; min 4 characters</div>
-        <input class="auth-input" id="su-pass" type="password"
-               placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
-               autocomplete="new-password">
+        <input class="auth-input" id="su-pass" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="new-password">
       </div>
       <div class="auth-field">
         <div class="auth-label">Confirm Password</div>
-        <input class="auth-input" id="su-pass2" type="password"
-               placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
-               autocomplete="new-password"
-               onkeydown="if(event.key==='Enter')signUp()">
+        <input class="auth-input" id="su-pass2" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+               autocomplete="new-password" onkeydown="if(event.key==='Enter')signUp()">
       </div>
       <div class="auth-error" id="su-err"></div>
       <button class="auth-btn" id="signup-btn" onclick="signUp()">Create Account</button>
     </div>
-
   </div>
 </div>
 
@@ -81,24 +69,15 @@
      ═══════════════════════════════════════════ -->
 <div class="topbar" id="topbar" style="display:none">
   <span class="app-title">WORKSPACE</span>
-
-  <button class="mode-btn active" id="btn-nb" onclick="switchMode('notebook')">
-    &#x1F4D3;&nbsp; Notebook
-  </button>
-  <button class="mode-btn" id="btn-tk" onclick="switchMode('tasks')">
-    &#x2713;&nbsp; Tasks
-  </button>
-
+  <button class="mode-btn active" id="btn-nb" onclick="switchMode('notebook')">&#x1F4D3;&nbsp;Notebook</button>
+  <button class="mode-btn"        id="btn-tk" onclick="switchMode('tasks')">&#x2713;&nbsp;Tasks</button>
   <span class="tb-sp"></span>
   <span class="ss" id="ss"></span>
-
   <span class="tb-user" id="tb-user"></span>
-
   <div class="th-tog" onclick="toggleTheme()">
     <span class="th-lbl" id="th-lbl">Light</span>
     <div class="tog-tr" id="tog-tr"><div class="tog-th"></div></div>
   </div>
-
   <button class="tb-btn" onclick="openChangePw()">&#x1F511;&nbsp;Password</button>
   <button class="tb-btn danger" onclick="logout()">&#x2192;&nbsp;Logout</button>
 </div>
@@ -111,6 +90,7 @@
   <!-- ── NOTEBOOK VIEW ── -->
   <div id="notebook-view">
 
+    <!-- Sidebar -->
     <div class="nb-sidebar">
       <div class="nb-sh">
         <span class="nb-st">Notebooks</span>
@@ -119,50 +99,43 @@
       <div class="nb-tl" id="nb-tl"></div>
     </div>
 
+    <!-- Editor -->
     <div class="nb-ed">
 
-      <!-- Editor pane -->
+      <!-- Active editor (hidden until notebook selected) -->
       <div id="nb-inner" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+
+        <!-- Title bar with export buttons -->
         <div class="nb-eh">
-          <input class="nb-ti" id="nb-title"
-                 placeholder="Notebook title&hellip;"
-                 oninput="onTitleChange()">
+          <input class="nb-ti" id="nb-title" placeholder="Notebook title&hellip;" oninput="onTitleChange()">
+          <div class="nb-export-btns">
+            <button class="exp-btn" onclick="exportPDF()" title="Export as PDF">&#x1F4C4; PDF</button>
+            <button class="exp-btn" onclick="exportDOCX()" title="Export as Word document">&#x1F4DD; .docx</button>
+          </div>
         </div>
-        <div class="nb-tb">
-          <button class="tb-b" onclick="ec('bold')"><b>B</b></button>
-          <button class="tb-b" onclick="ec('italic')"><i>I</i></button>
-          <button class="tb-b" onclick="ec('underline')"><u>U</u></button>
-          <button class="tb-b" onclick="ec('strikeThrough')"><s>S</s></button>
-          <span class="tb-s"></span>
-          <button class="tb-b" onclick="ec('insertUnorderedList')">&#x2022; List</button>
-          <button class="tb-b" onclick="ec('insertOrderedList')">1. List</button>
-          <span class="tb-s"></span>
-          <button class="tb-b" onclick="ec('formatBlock','h2')">H2</button>
-          <button class="tb-b" onclick="ec('formatBlock','blockquote')">&ldquo;&rdquo;</button>
-          <button class="tb-b" onclick="ec('formatBlock','pre')">Code</button>
-          <span class="tb-s"></span>
-          <button class="tb-b" onclick="document.getElementById('img-input').click()">
-            &#x1F5BC; Image
-          </button>
-          <button class="tb-b" onclick="ec('insertHTML','<hr>')">&#x2014; Line</button>
-        </div>
+
+        <!-- 2-row toolbar (built by buildToolbar() in notebook.js) -->
+        <div class="nb-toolbar" id="nb-toolbar"></div>
+
+        <!-- Hint -->
         <div class="nb-hint">
-          Ctrl+V paste image &middot; drag &amp; drop image file &middot;
-          click image to resize / crop / duplicate &middot; Ctrl+S save
+          Ctrl+V&nbsp;paste image &middot; drag &amp; drop image/file &middot;
+          click image &rarr; ⊹&nbsp;Free to place anywhere &middot;
+          Ctrl+S&nbsp;save &middot; </>&nbsp;Code to insert runnable block
         </div>
-        <div class="nb-cnt">
-          <div class="nb-ca" id="nb-editor"
-               contenteditable="true" spellcheck="true"></div>
+
+        <!-- Canvas + editor -->
+        <div class="nb-canvas-wrap">
+          <div class="nb-ca" id="nb-editor" contenteditable="true" spellcheck="true"></div>
         </div>
+
       </div>
 
       <!-- Empty state -->
       <div id="nb-empty" class="nb-empty">
         <div style="font-size:34px">&#x1F4D3;</div>
         <div>No notebook selected</div>
-        <div style="font-size:10px;margin-top:3px;letter-spacing:.5px">
-          Click + to create a notebook
-        </div>
+        <div style="font-size:10px;margin-top:3px;letter-spacing:.5px">Click + to create one</div>
       </div>
 
     </div>
@@ -174,9 +147,7 @@
       <div class="tm">
 
         <div class="ta-box">
-          <input class="ta-inp" id="t-inp"
-                 placeholder="Add a task&hellip;"
-                 onkeydown="if(event.key==='Enter')addTask()">
+          <input class="ta-inp" id="t-inp" placeholder="Add a task&hellip;" onkeydown="if(event.key==='Enter')addTask()">
           <select class="ta-sel" id="t-pri">
             <option value="med">Normal</option>
             <option value="high">High</option>
@@ -189,7 +160,6 @@
           <div class="ts-lbl">To Do</div>
           <div class="t-list" id="t-pend"></div>
         </div>
-
         <div id="done-sec">
           <div class="ts-lbl">Completed</div>
           <div class="t-list" id="t-done"></div>
@@ -204,42 +174,31 @@
 <!-- ═══════════════════════════════════════════
      MODALS
      ═══════════════════════════════════════════ -->
-
-<!-- Change Password -->
 <div class="mo" id="mo-pw">
   <div class="mb">
     <div class="mt">Change Password</div>
     <div class="ms">Verify your current password first.</div>
-    <div class="mf">
-      <div class="ml">Current Password</div>
-      <input class="mi" id="cp-cur" type="password">
-    </div>
-    <div class="mf">
-      <div class="ml">New Password</div>
-      <input class="mi" id="cp-new" type="password">
-    </div>
-    <div class="mf">
-      <div class="ml">Confirm New</div>
-      <input class="mi" id="cp-con" type="password"
-             onkeydown="if(event.key==='Enter')doChangePw()">
-    </div>
+    <div class="mf"><div class="ml">Current Password</div><input class="mi" id="cp-cur" type="password"></div>
+    <div class="mf"><div class="ml">New Password</div><input class="mi" id="cp-new" type="password"></div>
+    <div class="mf"><div class="ml">Confirm New</div>
+      <input class="mi" id="cp-con" type="password" onkeydown="if(event.key==='Enter')doChangePw()"></div>
     <div class="m-err" id="cp-err"></div>
     <div class="ma">
-      <button class="m-btn"    onclick="closeMo('mo-pw')">Cancel</button>
+      <button class="m-btn" onclick="closeMo('mo-pw')">Cancel</button>
       <button class="m-btn pr" onclick="doChangePw()">Update</button>
     </div>
   </div>
 </div>
 
-<!-- Toast -->
 <div class="toast" id="toast"></div>
-
-<!-- Hidden image file input -->
 <input type="file" id="img-input" accept="image/*" onchange="onImgFileInput(event)">
 
 <!-- ═══════════════════════════════════════════
-     SCRIPTS  (order matters)
+     SCRIPTS  (load order matters)
      ═══════════════════════════════════════════ -->
+<!-- Pyodide — loaded globally so notebook.js can call loadPyodide() -->
+<script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+
 <script src="js/api.js"></script>
 <script src="js/notebook.js"></script>
 <script src="js/tasks.js"></script>

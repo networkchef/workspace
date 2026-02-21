@@ -70,7 +70,7 @@ async function apiChangePassword(currentPassword, newPassword) {
 // NOTEBOOKS
 // ═══════════════════════════════════════════
 async function apiGetNotebooks()         { return apiFetch('/notebooks/'); }
-async function apiCreateNotebook(title)  { return apiFetch('/notebooks/', { method: 'POST', body: { title } }); }
+async function apiCreateNotebook(title, parentId) { return apiFetch('/notebooks/', { method: 'POST', body: { title, parent_id: parentId || null } }); }
 async function apiUpdateNotebook(id, title) { return apiFetch('/notebooks/' + id, { method: 'PUT', body: { title } }); }
 async function apiDeleteNotebook(id)     { return apiFetch('/notebooks/' + id, { method: 'DELETE' }); }
 async function apiGetContent(id)         { return apiFetch('/notebooks/' + id + '/content'); }
