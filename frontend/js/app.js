@@ -106,7 +106,7 @@ async function enterApp() {
   const username = localStorage.getItem('ws_user') || '';
   document.getElementById('tb-user').textContent = username;
 
-  setupEditorEvents();
+  initNotebook();   // build toolbar + setup editor events
   await Promise.all([loadNotebooks(), loadTasks()]);
   toast('Welcome, ' + username);
 }

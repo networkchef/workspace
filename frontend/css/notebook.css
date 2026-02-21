@@ -448,3 +448,23 @@
 }
 .table-cell.hover { background: var(--ink-mid); border-color: var(--ink); }
 .table-info { font-size: 9px; color: var(--ink-faint); text-align: center; margin-top: 2px; }
+
+/* nb-inner active state */
+#nb-inner {
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Toolbar must be always visible when nb-inner is shown */
+.nb-toolbar {
+  flex-shrink: 0;
+  display: block;
+}
+
+/* Ensure canvas wrap fills remaining space */
+.nb-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+}

@@ -59,8 +59,8 @@ async function loadNotebooks() {
 function renderNbList() {
   const list = document.getElementById('nb-tl');
   list.innerHTML = '';
-  const roots    = notebooks.filter(n => !n.parentId);
-  const children = pid => notebooks.filter(n => n.parentId === pid);
+  const roots    = notebooks.filter(n => !n.parentId || n.parentId === 'null');
+  const children = pid => notebooks.filter(n => n.parentId && n.parentId !== 'null' && n.parentId === pid);
 
   function renderItem(nb, isChild) {
     const kids   = children(nb.id);
@@ -161,12 +161,14 @@ async function newNotebook() {
 async function startNewSubNote(parentId) {
   const parent = notebooks.find(n => n.id===parentId);
   if (parent) parent._open = true;
-  const placeholder = { id:'__newsub__', title:'', parentId, _open:false };
+  const placeholder = { id:'__newsub__', title:'', parentId:parentId, _open:false };
   notebooks.push(placeholder);
   renderNbList();
 
+  // scroll sidebar to show the new input
   let targetTab = null;
-  document.querySelectorAll('.nb-tab').forEach(t => { if(t.dataset.id==='__newsub__') targetTab=t; });
+  document.querySelectorAll('.nb-tab').forEach(t => { if(t.dataset.id==='__newsub__') targetTab=t; })
+  if (targetTab) targetTab.scrollIntoView({block:'nearest'});
   if (!targetTab) return;
 
   const input = mkEl('input','tn-input'); input.placeholder='Sub-notebook name…';
@@ -517,11 +519,13 @@ const LANG_PATTERNS = [
   {lang:'css',    re:/[.#][\w-]+\s*\{|@media|@keyframes/m},
   {lang:'python', re:/def |import |print\(|class |if __name__|:\s*$/m},
   {lang:'bash',   re:/^#!/m},
+  {lang:'php',    re:/<\?php|\$[a-zA-Z_]/},
+  {lang:'perl',   re:/^use strict|^use warnings|sub [a-z]|my \$/m},
   {lang:'json',   re:/^\s*[\[{]/},
   {lang:'sql',    re:/SELECT|INSERT|UPDATE|DELETE|CREATE TABLE/i},
   {lang:'js',     re:/function |=>|const |let |var |console\./m},
 ];
-const LANG_LABELS = {js:'JavaScript',html:'HTML',css:'CSS',python:'Python',bash:'Bash',json:'JSON',sql:'SQL',text:'Plain Text'};
+const LANG_LABELS = {js:'JavaScript',html:'HTML',css:'CSS',python:'Python',php:'PHP',perl:'Perl',bash:'Bash',json:'JSON',sql:'SQL',text:'Plain Text'};
 function detectLang(code) { for(const{lang,re}of LANG_PATTERNS)if(re.test(code))return lang; return 'text'; }
 
 function insertCodeBlock(lang='js') {
@@ -695,202 +699,330 @@ function ec(cmd,val) {
 }
 
 function buildToolbar() {
-  const toolbar=document.getElementById('nb-toolbar');
-  toolbar.innerHTML='';
+  const toolbar = document.getElementById('nb-toolbar');
+  toolbar.innerHTML = '';
 
-  /* ══ ROW 1: Font, Size, Style, Color ══ */
-  const r1=mkEl('div','tb-row');
+  /* ══════════════════════════════════════════════════════
+     ROW 1  —  Font family | Size A↑ A↓ | B I U S X² X₂
+               | Aa (clear) | Font-color | Highlight
+     Matches MS Word "Font" group
+     ══════════════════════════════════════════════════════ */
+  const r1 = mkEl('div','tb-row');
 
-  // Font family
-  const fontSel=mkEl('select','tb-font-sel');
-  [['Default',''],['IM Fell English','IM Fell English,serif'],['Courier Prime','Courier Prime,monospace'],
-   ['Georgia','Georgia,serif'],['Times New Roman','Times New Roman,serif'],['Arial','Arial,sans-serif'],
-   ['Verdana','Verdana,sans-serif'],['Trebuchet MS','Trebuchet MS,sans-serif'],
-   ['Impact','Impact,sans-serif'],['Comic Sans MS','Comic Sans MS,cursive']
-  ].forEach(([l,v])=>{const o=mkEl('option');o.textContent=l;o.value=v;fontSel.appendChild(o);});
-  fontSel.addEventListener('change',()=>{document.getElementById('nb-editor').focus();document.execCommand('fontName',false,fontSel.value||'inherit');schedNbSave();});
-
-  // Font size
-  const sizeSel=mkEl('select','tb-size-sel');
-  [8,9,10,11,12,13,14,16,18,20,22,24,28,32,36,48,60,72,96].forEach(s=>{
-    const o=mkEl('option');o.textContent=s;o.value=s;if(s===14)o.selected=true;sizeSel.appendChild(o);
+  // ── Font family ──────────────────────────────────────
+  const fontSel = mkEl('select','tb-font-sel');
+  [
+    ['Default (Serif)',    ''],
+    ['Aptos',             'Aptos,sans-serif'],
+    ['Calibri',           'Calibri,sans-serif'],
+    ['IM Fell English',   'IM Fell English,serif'],
+    ['Courier Prime',     'Courier Prime,monospace'],
+    ['Georgia',           'Georgia,serif'],
+    ['Times New Roman',   'Times New Roman,serif'],
+    ['Arial',             'Arial,sans-serif'],
+    ['Verdana',           'Verdana,sans-serif'],
+    ['Trebuchet MS',      'Trebuchet MS,sans-serif'],
+    ['Impact',            'Impact,sans-serif'],
+    ['Comic Sans MS',     'Comic Sans MS,cursive'],
+    ['JetBrains Mono',    '"JetBrains Mono",monospace'],
+  ].forEach(([l,v]) => {
+    const o = mkEl('option'); o.textContent = l; o.value = v; fontSel.appendChild(o);
   });
-  sizeSel.addEventListener('change',()=>{
+  fontSel.addEventListener('change', () => {
     document.getElementById('nb-editor').focus();
-    document.execCommand('fontSize',false,'7');
-    document.querySelectorAll('font[size="7"]').forEach(el=>{el.removeAttribute('size');el.style.fontSize=sizeSel.value+'px';});
+    document.execCommand('fontName', false, fontSel.value || 'inherit');
     schedNbSave();
   });
 
-  r1.append(fontSel,sizeSel,mkTbs());
-
-  // Grow / Shrink font
-  const growBtn=mkTb('A↑'); growBtn.title='Increase font size';
-  growBtn.addEventListener('click',()=>{
-    const el=document.querySelector('font[size]');
-    document.execCommand('fontSize',false,'7');
-    document.querySelectorAll('font[size="7"]').forEach(f=>{
-      const cur=parseInt(window.getComputedStyle(f).fontSize)||14;
-      f.removeAttribute('size');f.style.fontSize=(cur+2)+'px';
-    });schedNbSave();
+  // ── Font size ────────────────────────────────────────
+  const sizeSel = mkEl('select','tb-size-sel');
+  [8,9,10,11,12,13,14,16,18,20,22,24,28,32,36,48,60,72,96].forEach(s => {
+    const o = mkEl('option'); o.textContent = s; o.value = s;
+    if (s === 14) o.selected = true;
+    sizeSel.appendChild(o);
   });
-  const shrinkBtn=mkTb('A↓'); shrinkBtn.title='Decrease font size';
-  shrinkBtn.addEventListener('click',()=>{
-    document.execCommand('fontSize',false,'7');
-    document.querySelectorAll('font[size="7"]').forEach(f=>{
-      const cur=parseInt(window.getComputedStyle(f).fontSize)||14;
-      f.removeAttribute('size');f.style.fontSize=Math.max(8,cur-2)+'px';
-    });schedNbSave();
+  sizeSel.addEventListener('change', () => {
+    document.getElementById('nb-editor').focus();
+    document.execCommand('fontSize', false, '7');
+    document.querySelectorAll('font[size="7"]').forEach(el => {
+      el.removeAttribute('size'); el.style.fontSize = sizeSel.value + 'px';
+    });
+    schedNbSave();
   });
-  r1.append(growBtn,shrinkBtn,mkTbs());
 
-  // Style buttons
-  [['<b>B</b>','bold'],['<i>I</i>','italic'],['<u>U</u>','underline'],
-   ['<s>S</s>','strikeThrough'],['X₂','subscript'],['X²','superscript']
-  ].forEach(([h,cmd])=>{const b=mkTb(h);b.addEventListener('click',()=>ec(cmd));r1.appendChild(b);});
+  // ── Grow / Shrink ───────────────────────────────────
+  const growBtn   = mkTb('A<sup style="font-size:7px">+</sup>'); growBtn.title   = 'Increase font size';
+  const shrinkBtn = mkTb('A<sup style="font-size:7px">-</sup>'); shrinkBtn.title = 'Decrease font size';
+  growBtn.addEventListener('click', () => {
+    document.execCommand('fontSize', false, '7');
+    document.querySelectorAll('font[size="7"]').forEach(f => {
+      const cur = parseInt(window.getComputedStyle(f).fontSize) || 14;
+      f.removeAttribute('size'); f.style.fontSize = (cur + 2) + 'px';
+    }); schedNbSave();
+  });
+  shrinkBtn.addEventListener('click', () => {
+    document.execCommand('fontSize', false, '7');
+    document.querySelectorAll('font[size="7"]').forEach(f => {
+      const cur = parseInt(window.getComputedStyle(f).fontSize) || 14;
+      f.removeAttribute('size'); f.style.fontSize = Math.max(8, cur - 2) + 'px';
+    }); schedNbSave();
+  });
+
+  r1.append(fontSel, sizeSel, growBtn, shrinkBtn, mkTbs());
+
+  // ── B I U S subscript superscript ───────────────────
+  const fmtBtns = [
+    ['<b>B</b>','bold','Bold'],
+    ['<i>I</i>','italic','Italic'],
+    ['<u>U</u>','underline','Underline'],
+    ['<s>ab</s>','strikeThrough','Strikethrough'],
+    ['x<sub>2</sub>','subscript','Subscript'],
+    ['x<sup>2</sup>','superscript','Superscript'],
+  ];
+  fmtBtns.forEach(([h, cmd, title]) => {
+    const b = mkTb(h); b.title = title;
+    b.addEventListener('click', () => ec(cmd));
+    r1.appendChild(b);
+  });
 
   r1.appendChild(mkTbs());
 
-  // Text color
-  const tcWrap=mkEl('span','tb-color-wrap'); tcWrap.title='Font Color';
-  const tcBtn=mkEl('button','tb-color-btn');
-  const tcSwatch=mkEl('span','tb-color-swatch'); tcSwatch.style.background='#1a1510';
-  tcSwatch.textContent='A';tcSwatch.style.cssText='display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;width:14px;height:14px;color:#1a1510;';
-  const tcInp=mkEl('input');tcInp.type='color';tcInp.value='#1a1510';
-  tcInp.style.cssText='position:absolute;width:200%;height:200%;top:-50%;left:-50%;opacity:0;cursor:pointer;';
-  tcInp.addEventListener('input',()=>{
-    tcSwatch.style.color=tcInp.value; tcSwatch.style.borderBottom='3px solid '+tcInp.value;
-    document.getElementById('nb-editor').focus();
-    document.execCommand('foreColor',false,tcInp.value);schedNbSave();
+  // ── "Aa" — change case / clear formatting ───────────
+  const caseWrap = mkEl('span'); caseWrap.style.position = 'relative';
+  const caseBtn  = mkTb('Aa'); caseBtn.title = 'Change Case / Clear';
+  const caseMenu = mkEl('div','spacing-menu'); caseMenu.style.minWidth = '160px';
+  [
+    ['Clear Formatting', () => ec('removeFormat')],
+    ['UPPERCASE',        () => transformSelection(s => s.toUpperCase())],
+    ['lowercase',        () => transformSelection(s => s.toLowerCase())],
+    ['Title Case',       () => transformSelection(s => s.replace(/\b\w/g, c => c.toUpperCase()))],
+  ].forEach(([label, fn]) => {
+    const opt = mkEl('div','sp-opt'); opt.textContent = label;
+    opt.addEventListener('click', () => { fn(); caseMenu.classList.remove('open'); });
+    caseMenu.appendChild(opt);
   });
-  tcBtn.append(tcSwatch,tcInp);tcWrap.appendChild(tcBtn);
+  caseBtn.addEventListener('click', e => { e.stopPropagation(); caseMenu.classList.toggle('open'); });
+  document.addEventListener('click', () => caseMenu.classList.remove('open'));
+  caseWrap.append(caseBtn, caseMenu);
+  r1.append(caseWrap, mkTbs());
 
-  // Highlight color
-  const hlWrap=buildHighlightPicker();
+  // ── Font (text) color ────────────────────────────────
+  const tcWrap   = mkEl('span','tb-color-wrap'); tcWrap.title = 'Font Color';
+  const tcBtn    = mkEl('button','tb-color-btn');
+  const tcLabel  = mkEl('span'); tcLabel.style.cssText = 'font-family:var(--font-mono);font-size:11px;font-weight:700;pointer-events:none;color:var(--ink);';
+  tcLabel.textContent = 'A';
+  const tcBar    = mkEl('span'); tcBar.style.cssText = 'display:block;width:14px;height:3px;background:#c0392b;border-radius:1px;margin-top:1px;pointer-events:none;';
+  const tcInp    = mkEl('input'); tcInp.type = 'color'; tcInp.value = '#c0392b';
+  tcInp.style.cssText = 'position:absolute;width:200%;height:200%;top:-50%;left:-50%;opacity:0;cursor:pointer;';
+  tcInp.addEventListener('input', () => {
+    tcBar.style.background = tcInp.value;
+    document.getElementById('nb-editor').focus();
+    document.execCommand('foreColor', false, tcInp.value);
+    schedNbSave();
+  });
+  const tcInner = mkEl('span'); tcInner.style.cssText = 'display:flex;flex-direction:column;align-items:center;position:relative;';
+  tcInner.append(tcLabel, tcBar, tcInp);
+  tcBtn.appendChild(tcInner); tcWrap.appendChild(tcBtn);
 
-  r1.append(tcWrap,hlWrap,mkTbs());
+  // ── Highlight color (marker icon + palette) ──────────
+  const hlWrap = buildHighlightPicker();
 
-  // Clear formatting
-  const clearBtn=mkTb('Tx'); clearBtn.title='Clear Formatting';
-  clearBtn.addEventListener('click',()=>ec('removeFormat'));
-  r1.append(clearBtn);
+  r1.append(tcWrap, hlWrap);
 
   toolbar.appendChild(r1);
 
-  /* ══ ROW 2: Paragraph, Align, Lists, Indent, Insert ══ */
-  const r2=mkEl('div','tb-row');
+  /* ══════════════════════════════════════════════════════
+     ROW 2  —  Paragraph styles | Align | Bullets/Num
+               | Indent | Sort | Spacing | Show marks
+     Matches MS Word "Paragraph" group
+     ══════════════════════════════════════════════════════ */
+  const r2 = mkEl('div','tb-row');
 
-  // Paragraph style
-  const headSel=mkEl('select','tb-font-sel');
-  [['Paragraph','p'],['Heading 1','h1'],['Heading 2','h2'],['Heading 3','h3'],
-   ['Quote','blockquote'],['Code','pre'],['Address','address']
-  ].forEach(([l,t])=>{const o=mkEl('option');o.textContent=l;o.value=t;headSel.appendChild(o);});
-  headSel.addEventListener('change',()=>{ec('formatBlock',headSel.value);headSel.value='p';});
-  r2.append(headSel,mkTbs());
+  // ── Bullet list / Numbered list ─────────────────────
+  const ulBtn = mkTb('&#x2022;&#x2013;'); ulBtn.title = 'Bulleted List';
+  ulBtn.addEventListener('click', () => ec('insertUnorderedList'));
 
-  // Alignment
-  [['≡L','justifyLeft','Align Left'],['≡C','justifyCenter','Center'],['≡R','justifyRight','Align Right'],['≡J','justifyFull','Justify']
-  ].forEach(([h,cmd,title])=>{const b=mkTb(h);b.title=title;b.addEventListener('click',()=>ec(cmd));r2.appendChild(b);});
+  const olBtn = mkTb('1.&#x2013;'); olBtn.title = 'Numbered List';
+  olBtn.addEventListener('click', () => ec('insertOrderedList'));
+
+  // ── Indent / Outdent ────────────────────────────────
+  const indBtn  = mkTb('&#x21E5;&#x2261;'); indBtn.title  = 'Increase Indent';
+  const outdBtn = mkTb('&#x21E4;&#x2261;'); outdBtn.title = 'Decrease Indent';
+  indBtn.addEventListener('click',  () => ec('indent'));
+  outdBtn.addEventListener('click', () => ec('outdent'));
+
+  r2.append(ulBtn, olBtn, indBtn, outdBtn, mkTbs());
+
+  // ── Alignment ────────────────────────────────────────
+  [
+    ['&#x2261;', 'justifyLeft',   'Align Left (Ctrl+L)'],
+    ['&#x2263;', 'justifyCenter', 'Center (Ctrl+E)'],
+    ['&#x2262;', 'justifyRight',  'Align Right (Ctrl+R)'],
+    ['&#x2261;', 'justifyFull',   'Justify (Ctrl+J)'],
+  ].forEach(([h, cmd, title]) => {
+    const b = mkTb(h); b.title = title;
+    b.addEventListener('click', () => ec(cmd));
+    r2.appendChild(b);
+  });
 
   r2.appendChild(mkTbs());
 
-  // Lists + indent
-  [['• List','insertUnorderedList'],['1. List','insertOrderedList'],['→ In','indent'],['← Out','outdent']
-  ].forEach(([h,cmd])=>{const b=mkTb(h);b.addEventListener('click',()=>ec(cmd));r2.appendChild(b);});
-
-  r2.appendChild(mkTbs());
-
-  // Line spacing picker
-  const spWrap=mkEl('span','tb-spacing-wrap');
-  const spBtn=mkTb('↕ Spacing');
-  const spMenu=mkEl('div','spacing-menu');
-  [['1.0','1'],['1.2','1.2'],['1.5','1.5'],['1.8','1.8'],['2.0','2'],['2.5','2.5'],['3.0','3']
-  ].forEach(([l,v])=>{
-    const opt=mkEl('div','sp-opt');opt.textContent='Line: '+l;
-    opt.addEventListener('click',()=>{document.getElementById('nb-editor').style.lineHeight=v;spMenu.classList.remove('open');});
+  // ── Line & paragraph spacing ─────────────────────────
+  const spWrap = mkEl('span','tb-spacing-wrap');
+  const spBtn  = mkTb('&#x2195;'); spBtn.title = 'Line & Paragraph Spacing';
+  const spMenu = mkEl('div','spacing-menu');
+  [
+    ['Line: 1.0', () => { document.getElementById('nb-editor').style.lineHeight = '1'; }],
+    ['Line: 1.15',() => { document.getElementById('nb-editor').style.lineHeight = '1.15'; }],
+    ['Line: 1.5', () => { document.getElementById('nb-editor').style.lineHeight = '1.5'; }],
+    ['Line: 2.0', () => { document.getElementById('nb-editor').style.lineHeight = '2'; }],
+    ['Line: 2.5', () => { document.getElementById('nb-editor').style.lineHeight = '2.5'; }],
+    ['Add space before paragraph', () => ec('insertHTML', '<div style="margin-top:12px"></div>')],
+    ['Remove space before paragraph', () => ec('insertHTML', '<div style="margin-top:0"></div>')],
+  ].forEach(([label, fn]) => {
+    const opt = mkEl('div','sp-opt'); opt.textContent = label;
+    opt.addEventListener('click', () => { fn(); spMenu.classList.remove('open'); });
     spMenu.appendChild(opt);
   });
-  spBtn.addEventListener('click',e=>{e.stopPropagation();spMenu.classList.toggle('open');});
-  document.addEventListener('click',()=>spMenu.classList.remove('open'));
-  spWrap.append(spBtn,spMenu);
-  r2.append(spWrap,mkTbs());
+  spBtn.addEventListener('click', e => { e.stopPropagation(); spMenu.classList.toggle('open'); });
+  document.addEventListener('click', () => spMenu.classList.remove('open'));
+  spWrap.append(spBtn, spMenu);
+  r2.append(spWrap, mkTbs());
 
-  // Insert: HR, Link, Image, Table, Code block
-  const hrBtn=mkTb('─ Line'); hrBtn.addEventListener('click',()=>ec('insertHTML','<hr>'));
-  const linkBtn=mkTb('🔗 Link'); linkBtn.addEventListener('click',()=>{const url=prompt('URL:');if(url)ec('createLink',url);});
-  const imgBtn=mkTb('🖼 Image'); imgBtn.addEventListener('click',()=>document.getElementById('img-input').click());
+  // ── Paragraph / Heading style ────────────────────────
+  const headSel = mkEl('select','tb-font-sel'); headSel.style.width = '110px';
+  [
+    ['Normal Text',  'p'],
+    ['Heading 1',    'h1'],
+    ['Heading 2',    'h2'],
+    ['Heading 3',    'h3'],
+    ['Quote',        'blockquote'],
+    ['Code block',   'pre'],
+    ['Address',      'address'],
+  ].forEach(([l, t]) => {
+    const o = mkEl('option'); o.textContent = l; o.value = t; headSel.appendChild(o);
+  });
+  headSel.addEventListener('change', () => { ec('formatBlock', headSel.value); headSel.value = 'p'; });
+  r2.append(headSel, mkTbs());
 
-  const tableWrap=buildTablePicker();
-  const codeWrap=buildCodeInsertPicker();
+  // ── Insert group ─────────────────────────────────────
+  const hrBtn   = mkTb('&#x2014; Line');   hrBtn.title = 'Horizontal Rule';
+  hrBtn.addEventListener('click', () => ec('insertHTML', '<hr>'));
 
-  r2.append(hrBtn,linkBtn,imgBtn,tableWrap,codeWrap);
+  const linkBtn = mkTb('&#x1F517; Link');  linkBtn.title = 'Insert Hyperlink';
+  linkBtn.addEventListener('click', () => {
+    const url = prompt('Enter URL:'); if (url) ec('createLink', url);
+  });
+
+  const imgBtn  = mkTb('&#x1F5BC; Image'); imgBtn.title = 'Insert Image';
+  imgBtn.addEventListener('click', () => document.getElementById('img-input').click());
+
+  const tableWrap = buildTablePicker();
+  const codeWrap  = buildCodeInsertPicker();
+
+  r2.append(hrBtn, linkBtn, imgBtn, tableWrap, codeWrap);
   toolbar.appendChild(r2);
 }
 
+// helper — transform selected text
+function transformSelection(fn) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  const text  = range.toString();
+  const span  = document.createElement('span');
+  span.textContent = fn(text);
+  range.deleteContents();
+  range.insertNode(span);
+  schedNbSave();
+}
+
 function buildHighlightPicker() {
-  const wrap=mkEl('span','tb-hl-wrap'); wrap.title='Highlight Color';
-  const btn=mkEl('button','tb-hl-btn'); btn.innerHTML='🖊';
-  const palette=mkEl('div','hl-palette');
-  ['#FFFF00','#FFD700','#FFA500','#FF6347','#FF69B4',
-   '#98FB98','#00FA9A','#87CEEB','#DDA0DD','#F5DEB3',
-   '#ADD8E6','#E6E6FA','#FFE4E1','#F0FFF0','#FFF8DC',
-   'transparent'
-  ].forEach(c=>{
-    const sw=mkEl('span',c==='transparent'?'hl-swatch none':'hl-swatch');
-    sw.style.background=c==='transparent'?'':c; sw.title=c==='transparent'?'Remove highlight':c;
-    sw.textContent=c==='transparent'?'✕':'';
-    sw.addEventListener('click',e=>{
+  const wrap = mkEl('span','tb-hl-wrap'); wrap.title = 'Text Highlight Color';
+  const btn  = mkEl('button','tb-hl-btn');
+  // Marker icon — underlined "ab" with color bar
+  btn.innerHTML = '<span style="font-size:10px;font-weight:700;font-family:var(--font-mono);">ab</span>';
+  const hlBar = mkEl('span');
+  hlBar.style.cssText = 'display:block;width:16px;height:3px;background:#FFFF00;border-radius:1px;margin:0 auto;pointer-events:none;';
+  btn.appendChild(hlBar);
+
+  const palette = mkEl('div','hl-palette');
+  const COLORS = [
+    '#FFFF00','#FFD700','#FFA500','#FF6347','#FF69B4',
+    '#98FB98','#00FA9A','#87CEEB','#DDA0DD','#F5DEB3',
+    '#ADD8E6','#E6E6FA','#FFE4E1','#F0FFF0','#FFF8DC',
+  ];
+  COLORS.forEach(c => {
+    const sw = mkEl('span','hl-swatch'); sw.style.background = c; sw.title = c;
+    sw.addEventListener('click', e => {
       e.stopPropagation();
+      hlBar.style.background = c;
       document.getElementById('nb-editor').focus();
-      document.execCommand('hiliteColor',false,c==='transparent'?'transparent':c);
-      palette.classList.remove('open');schedNbSave();
+      document.execCommand('hiliteColor', false, c);
+      palette.classList.remove('open'); schedNbSave();
     });
     palette.appendChild(sw);
   });
-  btn.addEventListener('click',e=>{e.stopPropagation();palette.classList.toggle('open');});
-  document.addEventListener('click',()=>palette.classList.remove('open'));
-  wrap.append(btn,palette);
+  // Remove highlight option
+  const removeBtn = mkEl('span','hl-swatch none'); removeBtn.textContent = '✕'; removeBtn.title = 'Remove Highlight';
+  removeBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    hlBar.style.background = 'transparent';
+    document.getElementById('nb-editor').focus();
+    document.execCommand('hiliteColor', false, 'transparent');
+    palette.classList.remove('open'); schedNbSave();
+  });
+  palette.appendChild(removeBtn);
+
+  btn.addEventListener('click', e => { e.stopPropagation(); palette.classList.toggle('open'); });
+  document.addEventListener('click', () => palette.classList.remove('open'));
+  wrap.append(btn, palette);
   return wrap;
 }
 
 function buildTablePicker() {
-  const wrap=mkEl('span','tb-table-wrap');
-  const btn=mkTb('⊞ Table');
-  const picker=mkEl('div','table-picker');
-  const info=mkEl('div','table-info'); info.textContent='0 × 0';
-  const ROWS=8,COLS=8; const cells=[];
-  for(let r=0;r<ROWS;r++){
-    const row=mkEl('div','table-row-cells');
-    for(let c=0;c<COLS;c++){
-      const cell=mkEl('div','table-cell'); cell.dataset.r=r;cell.dataset.c=c;
-      cell.addEventListener('mouseover',()=>{
-        cells.forEach(cc=>{const cr=+cc.dataset.r,cv=+cc.dataset.c;cc.classList.toggle('hover',cr<=r&&cv<=c);});
-        info.textContent=(r+1)+' × '+(c+1);
+  const wrap   = mkEl('span','tb-table-wrap');
+  const btn    = mkTb('&#x229E; Table'); btn.title = 'Insert Table';
+  const picker = mkEl('div','table-picker');
+  const info   = mkEl('div','table-info'); info.textContent = 'Insert table';
+
+  const ROWS = 8, COLS = 8;
+  const cells = [];
+  for (let r = 0; r < ROWS; r++) {
+    const row = mkEl('div','table-row-cells');
+    for (let c = 0; c < COLS; c++) {
+      const cell = mkEl('div','table-cell');
+      cell.dataset.r = r; cell.dataset.c = c;
+      cell.addEventListener('mouseover', () => {
+        cells.forEach(cc => {
+          cc.classList.toggle('hover', +cc.dataset.r <= r && +cc.dataset.c <= c);
+        });
+        info.textContent = (r+1) + ' × ' + (c+1);
       });
-      cell.addEventListener('click',()=>{insertTable(r+1,c+1);picker.classList.remove('open');});
-      cells.push(cell);row.appendChild(cell);
+      cell.addEventListener('click', () => { insertTable(r+1,c+1); picker.classList.remove('open'); });
+      cells.push(cell); row.appendChild(cell);
     }
     picker.appendChild(row);
   }
   picker.appendChild(info);
-  btn.addEventListener('click',e=>{e.stopPropagation();picker.classList.toggle('open');});
-  document.addEventListener('click',()=>picker.classList.remove('open'));
-  wrap.append(btn,picker);
+  btn.addEventListener('click', e => { e.stopPropagation(); picker.classList.toggle('open'); });
+  document.addEventListener('click', () => picker.classList.remove('open'));
+  wrap.append(btn, picker);
   return wrap;
 }
 
 function buildCodeInsertPicker() {
-  const wrap=mkEl('span');wrap.style.position='relative';
-  const btn=mkTb('</> Code');
-  const menu=mkEl('div','spacing-menu'); menu.style.minWidth='140px';
-  Object.entries(LANG_LABELS).forEach(([k,v])=>{
-    const opt=mkEl('div','sp-opt');opt.textContent=v;
-    opt.addEventListener('click',()=>{insertCodeBlock(k);menu.classList.remove('open');});
+  const wrap = mkEl('span'); wrap.style.position = 'relative';
+  const btn  = mkTb('&lt;/&gt; Code'); btn.title = 'Insert Code Block';
+  const menu = mkEl('div','spacing-menu'); menu.style.minWidth = '150px';
+  Object.entries(LANG_LABELS).forEach(([k, v]) => {
+    const opt = mkEl('div','sp-opt'); opt.textContent = v;
+    opt.addEventListener('click', () => { insertCodeBlock(k); menu.classList.remove('open'); });
     menu.appendChild(opt);
   });
-  btn.addEventListener('click',e=>{e.stopPropagation();menu.classList.toggle('open');});
-  document.addEventListener('click',()=>menu.classList.remove('open'));
-  wrap.append(btn,menu);
+  btn.addEventListener('click', e => { e.stopPropagation(); menu.classList.toggle('open'); });
+  document.addEventListener('click', () => menu.classList.remove('open'));
+  wrap.append(btn, menu);
   return wrap;
 }
 
