@@ -119,14 +119,7 @@
         <!-- 2-row toolbar (built by buildToolbar() in notebook.js) -->
         <div class="nb-toolbar" id="nb-toolbar"></div>
 
-        <!-- Hint -->
-        <div class="nb-hint">
-          Ctrl+V&nbsp;paste image &middot; drag &amp; drop image/file &middot;
-          click image &rarr; ⊹&nbsp;Free to place anywhere &middot;
-          Ctrl+S&nbsp;save &middot; </>&nbsp;Code to insert runnable block
-        </div>
-
-        <!-- Canvas + editor -->
+        <!-- Canvas + editor (hint bar removed) -->
         <div class="nb-canvas-wrap">
           <div class="nb-ca" id="nb-editor" contenteditable="true" spellcheck="true"></div>
         </div>
@@ -196,9 +189,8 @@
 <input type="file" id="img-input" accept="image/*" onchange="onImgFileInput(event)">
 
 <!-- ═══════════════════════════════════════════
-     SCRIPTS  (load order matters)
+     SCRIPTS
      ═══════════════════════════════════════════ -->
-<!-- Pyodide — loaded globally so notebook.js can call loadPyodide() -->
 <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
 
 <script src="js/api.js"></script>

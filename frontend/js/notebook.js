@@ -1,10 +1,11 @@
 /* ══════════════════════════════════════════════════════════════
    notebook.js  —  full notebook editor
-   • Canvas-style image & code block placement (no stuck state)
-   • VSCode-style inline notebook naming (no browser prompt)
+   • Canvas-style image & code block placement
+   • VSCode-style inline notebook naming
    • Sub-notebooks
    • Full MS-Word style toolbar (2 rows)
    • Code blocks: JS, HTML, Python (Pyodide WASM), auto-detect
+   • Sticky notes — free-floating, draggable
    • Export: PDF (print), .docx (backend)
    ══════════════════════════════════════════════════════════════ */
 
@@ -69,15 +70,12 @@ function renderNbList() {
     const tab    = mkEl('div','nb-tab' + (nb.id===activeNbId?' active':'') + (isChild?' sub':''));
     tab.dataset.id = nb.id;
 
-    // Expand arrow
     const arrow = mkEl('span','nb-arrow' + (isOpen&&kids.length?' open':''));
     arrow.textContent = kids.length ? '▶' : '·';
     if (kids.length) arrow.addEventListener('click', e => { e.stopPropagation(); nb._open=!nb._open; renderNbList(); });
 
-    // Name
     const nameSpan = mkEl('span','tn'); nameSpan.textContent = nb.title;
 
-    // Actions
     const acts = mkEl('span','nb-tab-actions');
 
     if (!isChild) {
@@ -104,7 +102,7 @@ function renderNbList() {
   roots.forEach(nb => list.appendChild(renderItem(nb, false)));
 }
 
-/* ─── Inline rename (VSCode style) ──────────────────────────── */
+/* ─── Inline rename ──────────────────────────────────────────── */
 function startRename(tab, nb) {
   const nameSpan = tab.querySelector('.tn');
   const input    = mkEl('input','tn-input');
@@ -126,7 +124,7 @@ function startRename(tab, nb) {
   });
 }
 
-/* ─── New notebook — inline in sidebar ──────────────────────── */
+/* ─── New notebook ───────────────────────────────────────────── */
 async function newNotebook() {
   const placeholder = { id:'__new__', title:'', parentId:null, _open:true };
   notebooks.push(placeholder);
@@ -157,7 +155,7 @@ async function newNotebook() {
   });
 }
 
-/* ─── New sub-notebook — inline ─────────────────────────────── */
+/* ─── New sub-notebook ───────────────────────────────────────── */
 async function startNewSubNote(parentId) {
   const parent = notebooks.find(n => n.id===parentId);
   if (parent) parent._open = true;
@@ -165,7 +163,6 @@ async function startNewSubNote(parentId) {
   notebooks.push(placeholder);
   renderNbList();
 
-  // scroll sidebar to show the new input
   let targetTab = null;
   document.querySelectorAll('.nb-tab').forEach(t => { if(t.dataset.id==='__newsub__') targetTab=t; })
   if (targetTab) targetTab.scrollIntoView({block:'nearest'});
@@ -215,7 +212,6 @@ async function selectNb(id) {
 function restoreEditorContent(nbId) {
   const editor = document.getElementById('nb-editor');
 
-  // Restore images — fix src, re-attach events, clear stuck state
   editor.querySelectorAll('img[data-iname]').forEach(img => {
     img.src = apiImageUrl(nbId, img.dataset.iname);
     let wrap = img.closest('.nb-img-wrap');
@@ -224,23 +220,27 @@ function restoreEditorContent(nbId) {
       img.parentNode.insertBefore(wrap, img);
       wrap.appendChild(img);
     }
-    // Clear any lingering selected class from saved HTML
     wrap.classList.remove('selected');
     attachImgEvents(wrap, img);
   });
 
-  // Restore code blocks — re-attach events
   editor.querySelectorAll('.code-block-wrap').forEach(cb => {
     const ta = cb.querySelector('.code-textarea');
     if (ta) {
       attachCodeBlockEvents(cb);
       updateLangBadge(cb, ta.dataset.lang || detectLang(ta.value));
-      // Hide any leftover output from previous session
       const out   = cb.querySelector('.code-output');
       const ifr   = cb.querySelector('.code-iframe');
       if (out)  { out.classList.remove('visible'); out.textContent=''; }
       if (ifr)  { ifr.classList.remove('visible'); ifr.srcdoc=''; }
+      // Restore collapsed state
+      applyCodeCollapse(cb);
     }
+  });
+
+  // Restore sticky notes
+  editor.querySelectorAll('.sticky-note').forEach(sn => {
+    attachStickyEvents(sn);
   });
 }
 
@@ -250,11 +250,9 @@ async function saveCurrentNb() {
   try {
     const editor = document.getElementById('nb-editor');
     const clone  = editor.cloneNode(true);
-    // Store relative image paths, not live API URLs
     clone.querySelectorAll('img[data-iname]').forEach(img => {
       img.src = 'images/' + img.dataset.iname;
     });
-    // Strip selection state & transient output
     clone.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     clone.querySelectorAll('.code-output').forEach(el => { el.classList.remove('visible'); el.textContent=''; });
     clone.querySelectorAll('.code-iframe').forEach(el => { el.classList.remove('visible'); el.srcdoc=''; });
@@ -299,9 +297,6 @@ function schedNbSave() {
 
 /* ═══════════════════════════════════════════════════════════════
    CANVAS IMAGE SYSTEM
-   Images default to inline flow; "Free" button promotes to
-   absolute canvas position. After reload, state is restored
-   correctly with no stuck-selection bug.
    ═══════════════════════════════════════════════════════════════ */
 async function insertImageBlob(blob, type) {
   if (!activeNbId) { toast('Select a notebook first.'); return; }
@@ -341,7 +336,6 @@ function makeImgWrap(img) {
 }
 
 function attachImgEvents(wrap, img) {
-  // Remove stale listeners by replacing resize handles
   wrap.querySelectorAll('.rh').forEach(h => {
     const nh = mkEl('span', h.className);
     h.replaceWith(nh);
@@ -365,7 +359,6 @@ function attachImgEvents(wrap, img) {
     if (a==='del')    delImg(wrap, img);
   });
 
-  // Resize handles
   wrap.querySelectorAll('.rh').forEach(h => {
     const corner = [...h.classList].find(c=>['se','sw','ne','nw'].includes(c));
     h.addEventListener('mousedown', e => startImgResize(e, wrap, img, corner));
@@ -374,7 +367,6 @@ function attachImgEvents(wrap, img) {
   setupImgDrag(wrap);
 }
 
-/* Selection */
 let selectedImg = null;
 function selectImgWrap(wrap) {
   if (selectedImg && selectedImg!==wrap) selectedImg.classList.remove('selected');
@@ -386,7 +378,6 @@ document.addEventListener('mousedown', e => {
   }
 });
 
-/* Free / Inline toggle */
 function makeImgFree(wrap) {
   if (wrap.classList.contains('canvas-pos')) return;
   const editor  = document.getElementById('nb-editor');
@@ -410,7 +401,6 @@ function makeImgInline(wrap) {
   schedNbSave();
 }
 
-/* Drag (canvas-pos only) */
 function setupImgDrag(wrap) {
   let drag=false, sx, sy, ol, ot;
   wrap.addEventListener('mousedown', e => {
@@ -427,7 +417,6 @@ function setupImgDrag(wrap) {
   document.addEventListener('mouseup', () => { if(drag){drag=false;schedNbSave();} });
 }
 
-/* Resize */
 function startImgResize(e, wrap, img, corner) {
   e.preventDefault(); e.stopPropagation(); selectImgWrap(wrap);
   const sx=e.clientX, sw=img.offsetWidth, sh=img.offsetHeight, asp=sw/sh;
@@ -440,7 +429,6 @@ function startImgResize(e, wrap, img, corner) {
   document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp);
 }
 
-/* Dup / Del / Crop */
 async function dupImg(img) {
   if (!activeNbId) return;
   try { const r=await fetch(apiImageUrl(activeNbId,img.dataset.iname)); await insertImageBlob(await r.blob(),'image/png'); }
@@ -481,34 +469,188 @@ function cropImg(wrap, img) {
   document.addEventListener('keydown',function onKey(e){if(e.key==='Escape'){ov.remove();document.removeEventListener('keydown',onKey);}});
 }
 
-/* Input / paste / drop */
 function onImgFileInput(e) { const f=e.target.files[0];if(!f)return;insertImageBlob(f,f.type);e.target.value=''; }
-function setupEditorEvents() {
-  const ed = document.getElementById('nb-editor');
-  ed.addEventListener('paste', async e => {
-    const items=e.clipboardData&&e.clipboardData.items;if(!items)return;
-    for(const item of items){if(item.type.startsWith('image/')){e.preventDefault();await insertImageBlob(item.getAsFile(),item.type);return;}}
-    setTimeout(schedNbSave,10);
-  });
-  ed.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';});
-  ed.addEventListener('drop',e=>{
-    let handled=false;
-    for(const f of e.dataTransfer.files){if(f.type.startsWith('image/')){handled=true;e.preventDefault();insertImageBlob(f,f.type);}}
-    if(!handled)setTimeout(schedNbSave,10);
-  });
-  ed.addEventListener('input', schedNbSave);
-}
-function insertAtCursor(editor, node) {
-  editor.focus();
-  const sel=window.getSelection();
-  if(sel&&sel.rangeCount){
-    const range=sel.getRangeAt(0);
-    if(editor.contains(range.commonAncestorContainer)){
-      range.collapse(false);range.insertNode(node);
-      range.setStartAfter(node);sel.removeAllRanges();sel.addRange(range);return;
+
+/* ═══════════════════════════════════════════════════════════════
+   DOUBLE-CLICK TO PLACE CURSOR ANYWHERE IN EDITOR
+   ═══════════════════════════════════════════════════════════════ */
+function setupDoubleClickCursor() {
+  const canvasWrap = document.querySelector('.nb-canvas-wrap');
+  if (!canvasWrap) return;
+
+  canvasWrap.addEventListener('dblclick', e => {
+    const editor = document.getElementById('nb-editor');
+    // Only act if click target is the canvas wrap itself (empty area)
+    if (e.target !== canvasWrap && e.target !== editor) return;
+
+    editor.focus();
+
+    // Calculate click position relative to editor
+    const edRect = editor.getBoundingClientRect();
+    const scrollTop = canvasWrap.scrollTop;
+    const clickX = e.clientX - edRect.left;
+    const clickY = e.clientY - edRect.top + scrollTop;
+
+    // Try to place cursor at the click position using caretRangeFromPoint / caretPositionFromPoint
+    let range = null;
+    if (document.caretRangeFromPoint) {
+      range = document.caretRangeFromPoint(e.clientX, e.clientY);
+    } else if (document.caretPositionFromPoint) {
+      const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+      if (pos) {
+        range = document.createRange();
+        range.setStart(pos.offsetNode, pos.offset);
+        range.collapse(true);
+      }
     }
+
+    // If clicked below all content, append a new paragraph and place cursor there
+    if (!range || e.target === canvasWrap) {
+      // Insert a paragraph at click point approximation
+      const br = document.createElement('p');
+      br.innerHTML = '<br>';
+      editor.appendChild(br);
+      range = document.createRange();
+      range.setStart(br, 0);
+      range.collapse(true);
+    }
+
+    if (range) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STICKY NOTES
+   ═══════════════════════════════════════════════════════════════ */
+let stickyColors = ['#FFFDE7','#E8F5E9','#E3F2FD','#FCE4EC','#F3E5F5','#FFF3E0'];
+let stickyColorIdx = 0;
+
+function insertStickyNote() {
+  if (!activeNbId) { toast('Select a notebook first.'); return; }
+  const editor = document.getElementById('nb-editor');
+  const canvasWrap = document.querySelector('.nb-canvas-wrap');
+  const scrollTop = canvasWrap ? canvasWrap.scrollTop : 0;
+
+  // Default position — center-ish of visible area
+  const edRect = editor.getBoundingClientRect();
+  const defLeft = Math.max(20, (edRect.width / 2) - 100);
+  const defTop  = scrollTop + 60;
+
+  const color = stickyColors[stickyColorIdx % stickyColors.length];
+  stickyColorIdx++;
+
+  const note = mkEl('div', 'sticky-note');
+  note.contentEditable = 'false';
+  note.style.left  = defLeft + 'px';
+  note.style.top   = defTop + 'px';
+  note.style.background = color;
+  note.dataset.color = color;
+
+  // Header (drag handle + controls)
+  const header = mkEl('div', 'sticky-header');
+
+  const colorBtns = mkEl('span', 'sticky-colors');
+  stickyColors.forEach(c => {
+    const sw = mkEl('span', 'sticky-color-sw');
+    sw.style.background = c;
+    sw.addEventListener('click', e => {
+      e.stopPropagation();
+      note.style.background = c;
+      note.dataset.color = c;
+      schedNbSave();
+    });
+    colorBtns.appendChild(sw);
+  });
+
+  const delBtn = mkEl('button', 'sticky-del-btn');
+  delBtn.textContent = '×';
+  delBtn.title = 'Delete note';
+  delBtn.addEventListener('click', e => { e.stopPropagation(); note.remove(); schedNbSave(); });
+
+  header.append(colorBtns, delBtn);
+
+  // Text area
+  const content = mkEl('div', 'sticky-content');
+  content.contentEditable = 'true';
+  content.setAttribute('data-placeholder', 'Type your note…');
+  content.addEventListener('input', schedNbSave);
+  content.addEventListener('mousedown', e => e.stopPropagation());
+  content.addEventListener('click', e => e.stopPropagation());
+  content.addEventListener('dblclick', e => e.stopPropagation());
+
+  // Resize handle
+  const resizeH = mkEl('div', 'sticky-resize');
+
+  note.append(header, content, resizeH);
+  editor.appendChild(note);
+  attachStickyEvents(note);
+  content.focus();
+  schedNbSave();
+}
+
+function attachStickyEvents(note) {
+  const header  = note.querySelector('.sticky-header');
+  const content = note.querySelector('.sticky-content');
+  const resizeH = note.querySelector('.sticky-resize');
+  const delBtn  = note.querySelector('.sticky-del-btn');
+
+  if (!header) return;
+
+  // Re-attach delete
+  if (delBtn) {
+    delBtn.onclick = e => { e.stopPropagation(); note.remove(); schedNbSave(); };
   }
-  editor.appendChild(node);
+
+  // Re-attach color swatches
+  note.querySelectorAll('.sticky-color-sw').forEach(sw => {
+    sw.onclick = e => {
+      e.stopPropagation();
+      note.style.background = sw.style.background;
+      note.dataset.color = sw.style.background;
+      schedNbSave();
+    };
+  });
+
+  // Re-attach content edit
+  if (content) {
+    content.addEventListener('input', schedNbSave);
+    content.addEventListener('mousedown', e => e.stopPropagation());
+    content.addEventListener('click', e => e.stopPropagation());
+    content.addEventListener('dblclick', e => e.stopPropagation());
+  }
+
+  // Drag
+  let drag=false, sx, sy, ol, ot;
+  header.style.cursor = 'grab';
+  header.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('sticky-del-btn') || e.target.classList.contains('sticky-color-sw')) return;
+    drag=true; sx=e.clientX; sy=e.clientY;
+    ol=parseInt(note.style.left)||0; ot=parseInt(note.style.top)||0;
+    header.style.cursor='grabbing'; e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!drag) return;
+    note.style.left=(ol+e.clientX-sx)+'px'; note.style.top=(ot+e.clientY-sy)+'px';
+  });
+  document.addEventListener('mouseup', () => { if(drag){ drag=false; header.style.cursor='grab'; schedNbSave(); } });
+
+  // Resize
+  if (resizeH) {
+    resizeH.addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const sy2=e.clientY, sh=note.offsetHeight, sw2=e.clientX, sw3=note.offsetWidth;
+      const onMove=ev=>{
+        note.style.height=Math.max(80,sh+ev.clientY-sy2)+'px';
+        note.style.width=Math.max(140,sw3+ev.clientX-sw2)+'px';
+      };
+      const onUp=()=>{ document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); schedNbSave(); };
+      document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp);
+    });
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -528,12 +670,61 @@ const LANG_PATTERNS = [
 const LANG_LABELS = {js:'JavaScript',html:'HTML',css:'CSS',python:'Python',php:'PHP',perl:'Perl',bash:'Bash',json:'JSON',sql:'SQL',text:'Plain Text'};
 function detectLang(code) { for(const{lang,re}of LANG_PATTERNS)if(re.test(code))return lang; return 'text'; }
 
+// Lines visible when collapsed
+const CODE_COLLAPSE_LINES = 10;
+
 function insertCodeBlock(lang='js') {
   if(!activeNbId){toast('Select a notebook first.');return;}
   const cb=buildCodeBlock('',lang);
   insertAtCursor(document.getElementById('nb-editor'),cb);
   cb.querySelector('.code-textarea').focus();
   schedNbSave();
+}
+
+function applyCodeCollapse(wrap) {
+  const ta = wrap.querySelector('.code-textarea');
+  if (!ta) return;
+  const lines = ta.value.split('\n').length;
+  const lineH = 19.2; // ~12px font * 1.6 line-height
+  const maxH  = CODE_COLLAPSE_LINES * lineH;
+
+  if (lines > CODE_COLLAPSE_LINES) {
+    if (!wrap.classList.contains('cb-expanded')) {
+      ta.style.height   = maxH + 'px';
+      ta.style.overflow = 'hidden';
+      ta.style.resize   = 'none';
+      showExpandBtn(wrap, true);
+    } else {
+      ta.style.height   = '';
+      ta.style.overflow = '';
+      ta.style.resize   = 'vertical';
+      showExpandBtn(wrap, false);
+    }
+  } else {
+    ta.style.height   = '';
+    ta.style.overflow = '';
+    ta.style.resize   = 'vertical';
+    hideExpandBtn(wrap);
+  }
+}
+
+function showExpandBtn(wrap, collapsed) {
+  let btn = wrap.querySelector('.cb-expand-btn');
+  if (!btn) {
+    btn = mkEl('button', 'cb-expand-btn');
+    wrap.appendChild(btn);
+    btn.addEventListener('click', () => {
+      wrap.classList.toggle('cb-expanded');
+      applyCodeCollapse(wrap);
+    });
+  }
+  btn.textContent = collapsed ? '▼ Show more' : '▲ Show less';
+  btn.style.display = 'block';
+}
+
+function hideExpandBtn(wrap) {
+  const btn = wrap.querySelector('.cb-expand-btn');
+  if (btn) btn.style.display = 'none';
 }
 
 function buildCodeBlock(code, lang) {
@@ -545,9 +736,12 @@ function buildCodeBlock(code, lang) {
   const header = mkEl('div','code-block-header');
   const badge  = mkEl('span','code-lang-badge'); badge.textContent=LANG_LABELS[lang]||lang;
   const sp     = mkEl('span','code-block-sp');
+
   const movBtn = mkEl('button','code-move-btn'); movBtn.textContent='⊹ Free';
   const cpyBtn = mkEl('button','code-copy-btn'); cpyBtn.textContent='Copy';
   const runBtn = mkEl('button','code-run-btn');  runBtn.textContent='▶ Run';
+  const delCbBtn = mkEl('button','code-del-btn'); delCbBtn.textContent='✕';
+  delCbBtn.title='Remove block';
 
   const langSel = mkEl('select','tb-size-sel');
   langSel.style.cssText='font-size:9px;height:20px;margin-left:6px;width:100px;';
@@ -555,7 +749,7 @@ function buildCodeBlock(code, lang) {
     const o=mkEl('option');o.value=k;o.textContent=v;if(k===lang)o.selected=true;langSel.appendChild(o);
   });
 
-  header.append(badge,sp,movBtn,cpyBtn,runBtn,langSel);
+  header.append(badge,sp,movBtn,cpyBtn,runBtn,langSel,delCbBtn);
 
   const ta = mkEl('textarea','code-textarea');
   ta.value=code; ta.dataset.lang=lang; ta.placeholder='// Write your code here…'; ta.spellcheck=false;
@@ -567,6 +761,7 @@ function buildCodeBlock(code, lang) {
 
   wrap.append(header,ta,out,iframe,cbRes);
   attachCodeBlockEvents(wrap);
+  setTimeout(() => applyCodeCollapse(wrap), 0);
   return wrap;
 }
 
@@ -581,7 +776,12 @@ function attachCodeBlockEvents(wrap) {
   const runBtn = wrap.querySelector('.code-run-btn');
   const cpyBtn = wrap.querySelector('.code-copy-btn');
   const movBtn = wrap.querySelector('.code-move-btn');
+  const delCbBtn = wrap.querySelector('.code-del-btn');
   const langSel= wrap.querySelector('select');
+
+  if (delCbBtn) {
+    delCbBtn.onclick = () => { if(confirm('Remove this code block?')) { wrap.remove(); schedNbSave(); } };
+  }
 
   // Tab key support
   ta.addEventListener('keydown', e => {
@@ -590,13 +790,14 @@ function attachCodeBlockEvents(wrap) {
   });
   ta.addEventListener('input', () => {
     ta.dataset.lang=langSel?langSel.value:detectLang(ta.value);
-    updateLangBadge(wrap,ta.dataset.lang);schedNbSave();
+    updateLangBadge(wrap,ta.dataset.lang);
+    applyCodeCollapse(wrap);
+    schedNbSave();
   });
 
   if(langSel) langSel.addEventListener('change',()=>{ta.dataset.lang=langSel.value;updateLangBadge(wrap,langSel.value);schedNbSave();});
   if(cpyBtn)  cpyBtn.addEventListener('click',()=>navigator.clipboard.writeText(ta.value).then(()=>toast('Copied!')));
 
-  // Free / inline toggle
   if(movBtn) {
     movBtn.addEventListener('click',()=>{
       if(wrap.classList.contains('canvas-pos')){
@@ -611,7 +812,7 @@ function attachCodeBlockEvents(wrap) {
     setupCodeBlockDrag(wrap);
   }
 
-  // Vertical resize
+  // Vertical resize handle (only when expanded/short)
   const cbRes = wrap.querySelector('.cb-resize');
   if(cbRes) cbRes.addEventListener('mousedown',e=>{
     e.preventDefault();const sy=e.clientY,sh=ta.offsetHeight;
@@ -669,7 +870,6 @@ async function runCode(wrap,ta,out,iframe,runBtn) {
       py.runPython('sys.stdout=_stdout_');
       out.textContent=stdout||'(no output)';
     } else {
-      // JS runner
       const logs=[];
       const fakeCons={
         log:  (...a)=>logs.push(a.map(String).join(' ')),
@@ -690,7 +890,42 @@ async function runCode(wrap,ta,out,iframe,runBtn) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   FULL TOOLBAR  (2 rows — all MS Word Home features)
+   SETUP EDITOR EVENTS
+   ═══════════════════════════════════════════════════════════════ */
+function setupEditorEvents() {
+  const ed = document.getElementById('nb-editor');
+  ed.addEventListener('paste', async e => {
+    const items=e.clipboardData&&e.clipboardData.items;if(!items)return;
+    for(const item of items){if(item.type.startsWith('image/')){e.preventDefault();await insertImageBlob(item.getAsFile(),item.type);return;}}
+    setTimeout(schedNbSave,10);
+  });
+  ed.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';});
+  ed.addEventListener('drop',e=>{
+    let handled=false;
+    for(const f of e.dataTransfer.files){if(f.type.startsWith('image/')){handled=true;e.preventDefault();insertImageBlob(f,f.type);}}
+    if(!handled)setTimeout(schedNbSave,10);
+  });
+  ed.addEventListener('input', schedNbSave);
+
+  // Setup double-click cursor placement
+  setupDoubleClickCursor();
+}
+
+function insertAtCursor(editor, node) {
+  editor.focus();
+  const sel=window.getSelection();
+  if(sel&&sel.rangeCount){
+    const range=sel.getRangeAt(0);
+    if(editor.contains(range.commonAncestorContainer)){
+      range.collapse(false);range.insertNode(node);
+      range.setStartAfter(node);sel.removeAllRanges();sel.addRange(range);return;
+    }
+  }
+  editor.appendChild(node);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FULL TOOLBAR
    ═══════════════════════════════════════════════════════════════ */
 function ec(cmd,val) {
   document.getElementById('nb-editor').focus();
@@ -702,14 +937,9 @@ function buildToolbar() {
   const toolbar = document.getElementById('nb-toolbar');
   toolbar.innerHTML = '';
 
-  /* ══════════════════════════════════════════════════════
-     ROW 1  —  Font family | Size A↑ A↓ | B I U S X² X₂
-               | Aa (clear) | Font-color | Highlight
-     Matches MS Word "Font" group
-     ══════════════════════════════════════════════════════ */
+  /* ROW 1 */
   const r1 = mkEl('div','tb-row');
 
-  // ── Font family ──────────────────────────────────────
   const fontSel = mkEl('select','tb-font-sel');
   [
     ['Default (Serif)',    ''],
@@ -734,7 +964,6 @@ function buildToolbar() {
     schedNbSave();
   });
 
-  // ── Font size ────────────────────────────────────────
   const sizeSel = mkEl('select','tb-size-sel');
   [8,9,10,11,12,13,14,16,18,20,22,24,28,32,36,48,60,72,96].forEach(s => {
     const o = mkEl('option'); o.textContent = s; o.value = s;
@@ -750,7 +979,6 @@ function buildToolbar() {
     schedNbSave();
   });
 
-  // ── Grow / Shrink ───────────────────────────────────
   const growBtn   = mkTb('A<sup style="font-size:7px">+</sup>'); growBtn.title   = 'Increase font size';
   const shrinkBtn = mkTb('A<sup style="font-size:7px">-</sup>'); shrinkBtn.title = 'Decrease font size';
   growBtn.addEventListener('click', () => {
@@ -770,7 +998,6 @@ function buildToolbar() {
 
   r1.append(fontSel, sizeSel, growBtn, shrinkBtn, mkTbs());
 
-  // ── B I U S subscript superscript ───────────────────
   const fmtBtns = [
     ['<b>B</b>','bold','Bold'],
     ['<i>I</i>','italic','Italic'],
@@ -787,7 +1014,7 @@ function buildToolbar() {
 
   r1.appendChild(mkTbs());
 
-  // ── "Aa" — change case / clear formatting ───────────
+  // Change case / clear
   const caseWrap = mkEl('span'); caseWrap.style.position = 'relative';
   const caseBtn  = mkTb('Aa'); caseBtn.title = 'Change Case / Clear';
   const caseMenu = mkEl('div','spacing-menu'); caseMenu.style.minWidth = '160px';
@@ -806,7 +1033,7 @@ function buildToolbar() {
   caseWrap.append(caseBtn, caseMenu);
   r1.append(caseWrap, mkTbs());
 
-  // ── Font (text) color ────────────────────────────────
+  // Font color
   const tcWrap   = mkEl('span','tb-color-wrap'); tcWrap.title = 'Font Color';
   const tcBtn    = mkEl('button','tb-color-btn');
   const tcLabel  = mkEl('span'); tcLabel.style.cssText = 'font-family:var(--font-mono);font-size:11px;font-weight:700;pointer-events:none;color:var(--ink);';
@@ -824,28 +1051,21 @@ function buildToolbar() {
   tcInner.append(tcLabel, tcBar, tcInp);
   tcBtn.appendChild(tcInner); tcWrap.appendChild(tcBtn);
 
-  // ── Highlight color (marker icon + palette) ──────────
+  // Highlight — FIXED: use a custom approach since hiliteColor is unreliable
   const hlWrap = buildHighlightPicker();
 
   r1.append(tcWrap, hlWrap);
-
   toolbar.appendChild(r1);
 
-  /* ══════════════════════════════════════════════════════
-     ROW 2  —  Paragraph styles | Align | Bullets/Num
-               | Indent | Sort | Spacing | Show marks
-     Matches MS Word "Paragraph" group
-     ══════════════════════════════════════════════════════ */
+  /* ROW 2 */
   const r2 = mkEl('div','tb-row');
 
-  // ── Bullet list / Numbered list ─────────────────────
   const ulBtn = mkTb('&#x2022;&#x2013;'); ulBtn.title = 'Bulleted List';
   ulBtn.addEventListener('click', () => ec('insertUnorderedList'));
 
   const olBtn = mkTb('1.&#x2013;'); olBtn.title = 'Numbered List';
   olBtn.addEventListener('click', () => ec('insertOrderedList'));
 
-  // ── Indent / Outdent ────────────────────────────────
   const indBtn  = mkTb('&#x21E5;&#x2261;'); indBtn.title  = 'Increase Indent';
   const outdBtn = mkTb('&#x21E4;&#x2261;'); outdBtn.title = 'Decrease Indent';
   indBtn.addEventListener('click',  () => ec('indent'));
@@ -853,12 +1073,11 @@ function buildToolbar() {
 
   r2.append(ulBtn, olBtn, indBtn, outdBtn, mkTbs());
 
-  // ── Alignment ────────────────────────────────────────
   [
-    ['&#x2261;', 'justifyLeft',   'Align Left (Ctrl+L)'],
-    ['&#x2263;', 'justifyCenter', 'Center (Ctrl+E)'],
-    ['&#x2262;', 'justifyRight',  'Align Right (Ctrl+R)'],
-    ['&#x2261;', 'justifyFull',   'Justify (Ctrl+J)'],
+    ['&#x2261;', 'justifyLeft',   'Align Left'],
+    ['&#x2263;', 'justifyCenter', 'Center'],
+    ['&#x2262;', 'justifyRight',  'Align Right'],
+    ['&#x2261;', 'justifyFull',   'Justify'],
   ].forEach(([h, cmd, title]) => {
     const b = mkTb(h); b.title = title;
     b.addEventListener('click', () => ec(cmd));
@@ -867,29 +1086,51 @@ function buildToolbar() {
 
   r2.appendChild(mkTbs());
 
-  // ── Line & paragraph spacing ─────────────────────────
+  // Line spacing — now applies to selected paragraphs or editor
   const spWrap = mkEl('span','tb-spacing-wrap');
-  const spBtn  = mkTb('&#x2195;'); spBtn.title = 'Line & Paragraph Spacing';
+  const spBtn  = mkTb('&#x2195;'); spBtn.title = 'Line Spacing';
   const spMenu = mkEl('div','spacing-menu');
+
+  const LINE_SPACINGS = [
+    ['1.0', '1'],
+    ['1.15', '1.15'],
+    ['1.4', '1.4'],
+    ['1.5', '1.5'],
+    ['1.7', '1.7'],
+    ['2.0', '2'],
+    ['2.5', '2.5'],
+  ];
+
+  LINE_SPACINGS.forEach(([label, val]) => {
+    const opt = mkEl('div','sp-opt'); opt.textContent = 'Line: ' + label;
+    opt.addEventListener('click', () => {
+      applyLineSpacing(val);
+      spMenu.classList.remove('open');
+    });
+    spMenu.appendChild(opt);
+  });
+
+  // Add spacer
+  const spacerDiv = mkEl('div'); spacerDiv.style.borderTop='1px solid var(--rule)'; spacerDiv.style.margin='3px 0';
+  spMenu.appendChild(spacerDiv);
+
   [
-    ['Line: 1.0', () => { document.getElementById('nb-editor').style.lineHeight = '1'; }],
-    ['Line: 1.15',() => { document.getElementById('nb-editor').style.lineHeight = '1.15'; }],
-    ['Line: 1.5', () => { document.getElementById('nb-editor').style.lineHeight = '1.5'; }],
-    ['Line: 2.0', () => { document.getElementById('nb-editor').style.lineHeight = '2'; }],
-    ['Line: 2.5', () => { document.getElementById('nb-editor').style.lineHeight = '2.5'; }],
-    ['Add space before paragraph', () => ec('insertHTML', '<div style="margin-top:12px"></div>')],
-    ['Remove space before paragraph', () => ec('insertHTML', '<div style="margin-top:0"></div>')],
+    ['Space before paragraph', () => applyParagraphSpacing('12px', 'before')],
+    ['No space before paragraph', () => applyParagraphSpacing('0', 'before')],
+    ['Space after paragraph', () => applyParagraphSpacing('12px', 'after')],
+    ['No space after paragraph', () => applyParagraphSpacing('0', 'after')],
   ].forEach(([label, fn]) => {
     const opt = mkEl('div','sp-opt'); opt.textContent = label;
     opt.addEventListener('click', () => { fn(); spMenu.classList.remove('open'); });
     spMenu.appendChild(opt);
   });
+
   spBtn.addEventListener('click', e => { e.stopPropagation(); spMenu.classList.toggle('open'); });
   document.addEventListener('click', () => spMenu.classList.remove('open'));
   spWrap.append(spBtn, spMenu);
   r2.append(spWrap, mkTbs());
 
-  // ── Paragraph / Heading style ────────────────────────
+  // Paragraph / Heading style
   const headSel = mkEl('select','tb-font-sel'); headSel.style.width = '110px';
   [
     ['Normal Text',  'p'],
@@ -905,7 +1146,7 @@ function buildToolbar() {
   headSel.addEventListener('change', () => { ec('formatBlock', headSel.value); headSel.value = 'p'; });
   r2.append(headSel, mkTbs());
 
-  // ── Insert group ─────────────────────────────────────
+  // Insert group
   const hrBtn   = mkTb('&#x2014; Line');   hrBtn.title = 'Horizontal Rule';
   hrBtn.addEventListener('click', () => ec('insertHTML', '<hr>'));
 
@@ -917,14 +1158,74 @@ function buildToolbar() {
   const imgBtn  = mkTb('&#x1F5BC; Image'); imgBtn.title = 'Insert Image';
   imgBtn.addEventListener('click', () => document.getElementById('img-input').click());
 
+  // Sticky note button
+  const stickyBtn = mkTb('📌 Note'); stickyBtn.title = 'Insert Sticky Note';
+  stickyBtn.addEventListener('click', () => insertStickyNote());
+
   const tableWrap = buildTablePicker();
   const codeWrap  = buildCodeInsertPicker();
 
-  r2.append(hrBtn, linkBtn, imgBtn, tableWrap, codeWrap);
+  r2.append(hrBtn, linkBtn, imgBtn, stickyBtn, tableWrap, codeWrap);
   toolbar.appendChild(r2);
 }
 
-// helper — transform selected text
+/* ─── Line spacing helpers ───────────────────────────────────── */
+function applyLineSpacing(value) {
+  const editor = document.getElementById('nb-editor');
+  const sel = window.getSelection();
+
+  // If there's a selection, apply to selected block elements
+  if (sel && sel.rangeCount && !sel.isCollapsed) {
+    const range = sel.getRangeAt(0);
+    const startContainer = range.startContainer;
+    const endContainer   = range.endContainer;
+
+    // Find all block-level elements in range
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_ELEMENT);
+    const blocks = [];
+    let node = walker.nextNode();
+    while (node) {
+      const isBlock = ['P','DIV','H1','H2','H3','H4','H5','H6','BLOCKQUOTE','PRE','LI'].includes(node.tagName);
+      if (isBlock && range.intersectsNode(node)) blocks.push(node);
+      node = walker.nextNode();
+    }
+
+    if (blocks.length > 0) {
+      blocks.forEach(b => b.style.lineHeight = value);
+    } else {
+      // Apply to current paragraph
+      let node2 = sel.anchorNode;
+      while (node2 && node2 !== editor) {
+        if (node2.nodeType === 1 && ['P','DIV','H1','H2','H3','H4','H5','H6'].includes(node2.tagName)) {
+          node2.style.lineHeight = value; break;
+        }
+        node2 = node2.parentNode;
+      }
+    }
+  } else {
+    // Apply to whole editor
+    editor.style.lineHeight = value;
+  }
+  schedNbSave();
+}
+
+function applyParagraphSpacing(value, position) {
+  const sel = window.getSelection();
+  if (!sel || !sel.anchorNode) return;
+  const editor = document.getElementById('nb-editor');
+  let node = sel.anchorNode;
+  while (node && node !== editor) {
+    if (node.nodeType === 1 && ['P','DIV','H1','H2','H3'].includes(node.tagName)) {
+      if (position === 'before') node.style.marginTop = value;
+      else node.style.marginBottom = value;
+      break;
+    }
+    node = node.parentNode;
+  }
+  schedNbSave();
+}
+
+/* ─── Transform selection ────────────────────────────────────── */
 function transformSelection(fn) {
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
@@ -937,10 +1238,10 @@ function transformSelection(fn) {
   schedNbSave();
 }
 
+/* ─── Highlight picker — FIXED ───────────────────────────────── */
 function buildHighlightPicker() {
   const wrap = mkEl('span','tb-hl-wrap'); wrap.title = 'Text Highlight Color';
   const btn  = mkEl('button','tb-hl-btn');
-  // Marker icon — underlined "ab" with color bar
   btn.innerHTML = '<span style="font-size:10px;font-weight:700;font-family:var(--font-mono);">ab</span>';
   const hlBar = mkEl('span');
   hlBar.style.cssText = 'display:block;width:16px;height:3px;background:#FFFF00;border-radius:1px;margin:0 auto;pointer-events:none;';
@@ -952,25 +1253,36 @@ function buildHighlightPicker() {
     '#98FB98','#00FA9A','#87CEEB','#DDA0DD','#F5DEB3',
     '#ADD8E6','#E6E6FA','#FFE4E1','#F0FFF0','#FFF8DC',
   ];
+
+  // Store selection before palette opens
+  let savedRange = null;
+  btn.addEventListener('mousedown', e => {
+    // Save selection before click blurs editor
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      savedRange = sel.getRangeAt(0).cloneRange();
+    }
+  });
+
   COLORS.forEach(c => {
     const sw = mkEl('span','hl-swatch'); sw.style.background = c; sw.title = c;
-    sw.addEventListener('click', e => {
+    sw.addEventListener('mousedown', e => {
+      e.preventDefault();
       e.stopPropagation();
+      applyHighlight(c, savedRange);
       hlBar.style.background = c;
-      document.getElementById('nb-editor').focus();
-      document.execCommand('hiliteColor', false, c);
-      palette.classList.remove('open'); schedNbSave();
+      palette.classList.remove('open');
     });
     palette.appendChild(sw);
   });
-  // Remove highlight option
+
   const removeBtn = mkEl('span','hl-swatch none'); removeBtn.textContent = '✕'; removeBtn.title = 'Remove Highlight';
-  removeBtn.addEventListener('click', e => {
+  removeBtn.addEventListener('mousedown', e => {
+    e.preventDefault();
     e.stopPropagation();
+    applyHighlight(null, savedRange);
     hlBar.style.background = 'transparent';
-    document.getElementById('nb-editor').focus();
-    document.execCommand('hiliteColor', false, 'transparent');
-    palette.classList.remove('open'); schedNbSave();
+    palette.classList.remove('open');
   });
   palette.appendChild(removeBtn);
 
@@ -980,6 +1292,48 @@ function buildHighlightPicker() {
   return wrap;
 }
 
+function applyHighlight(color, savedRange) {
+  const editor = document.getElementById('nb-editor');
+  const sel = window.getSelection();
+
+  // Restore saved range if we have one
+  if (savedRange) {
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+  }
+
+  if (!sel || sel.isCollapsed) return;
+
+  const range = sel.getRangeAt(0);
+  if (!editor.contains(range.commonAncestorContainer)) return;
+
+  if (color === null) {
+    // Remove highlight — unwrap any highlight spans in selection
+    document.execCommand('removeFormat', false, null);
+  } else {
+    // Wrap selection in a highlight span
+    try {
+      // Try execCommand first (works in Firefox)
+      document.execCommand('hiliteColor', false, color);
+    } catch(e) {
+      // Fallback: manual span wrapping
+      const span = document.createElement('mark');
+      span.style.backgroundColor = color;
+      span.style.color = 'inherit';
+      try {
+        range.surroundContents(span);
+      } catch(err) {
+        // Range spans multiple nodes — use extractContents
+        const frag = range.extractContents();
+        span.appendChild(frag);
+        range.insertNode(span);
+      }
+    }
+  }
+  schedNbSave();
+}
+
+/* ─── Table picker ───────────────────────────────────────────── */
 function buildTablePicker() {
   const wrap   = mkEl('span','tb-table-wrap');
   const btn    = mkTb('&#x229E; Table'); btn.title = 'Insert Table';
@@ -1011,6 +1365,7 @@ function buildTablePicker() {
   return wrap;
 }
 
+/* ─── Code insert picker ─────────────────────────────────────── */
 function buildCodeInsertPicker() {
   const wrap = mkEl('span'); wrap.style.position = 'relative';
   const btn  = mkTb('&lt;/&gt; Code'); btn.title = 'Insert Code Block';
@@ -1049,7 +1404,7 @@ async function exportPDF() {
 <title>${nb?nb.title:'Notebook'}</title>
 <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
 <style>
-body{font-family:'IM Fell English',serif;font-size:14px;line-height:1.9;color:#1a1510;margin:0;padding:40px 60px;}
+body{font-family:'IM Fell English',serif;font-size:14px;line-height:1.5;color:#1a1510;margin:0;padding:40px 60px;}
 h1,h2,h3{font-family:'Courier Prime',monospace;letter-spacing:1px;}
 pre,code{font-family:'Courier Prime',monospace;font-size:12px;background:#f0ede6;padding:10px;border-radius:3px;white-space:pre-wrap;}
 blockquote{border-left:3px solid #a09080;padding-left:14px;color:#4a4035;font-style:italic;}
@@ -1058,7 +1413,7 @@ td,th{border:1px solid #c8bfaa;padding:6px 10px;}
 th{background:#ede8dc;font-weight:700;}
 img{max-width:100%;height:auto;}
 hr{border:none;border-top:1px solid #c8bfaa;margin:16px 0;}
-.code-output,.code-iframe,.code-run-btn,.code-copy-btn,.code-move-btn,.cb-resize,.img-toolbar,.rh{display:none!important;}
+.code-output,.code-iframe,.code-run-btn,.code-copy-btn,.code-move-btn,.cb-resize,.img-toolbar,.rh,.sticky-note{display:none!important;}
 @media print{body{padding:20px 30px;}@page{margin:2cm;}}
 </style></head><body>
 <h1 style="border-bottom:2px solid #a09080;padding-bottom:8px;">${nb?nb.title:''}</h1>
