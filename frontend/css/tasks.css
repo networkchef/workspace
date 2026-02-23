@@ -1,0 +1,328 @@
+/* ══════════════════════════════════════════
+   tasks-enhanced.css
+   Paste into your existing task/notebook CSS
+   or import via <link> after your main stylesheet
+   ══════════════════════════════════════════ */
+
+/* ── Search row ───────────────────────────────── */
+.ta-search-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.ta-search {
+  flex: 1 1 180px;
+  padding: 7px 12px;
+  border: 1.5px solid var(--bdr, #ddd);
+  border-radius: 20px;
+  background: var(--bg2, #f7f7f7);
+  color: var(--fg, #222);
+  font-size: 13px;
+  outline: none;
+  transition: border-color .2s;
+}
+.ta-search:focus { border-color: var(--acc, #5b8a5b); }
+
+/* ── Filter pills ─────────────────────────────── */
+.t-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.t-filter-pill {
+  padding: 4px 11px;
+  border-radius: 20px;
+  border: 1.5px solid var(--bdr, #ddd);
+  background: transparent;
+  color: var(--fg, #444);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.t-filter-pill:hover { background: var(--bg2, #f0f0f0); }
+.t-filter-pill.active {
+  background: var(--acc, #5b8a5b);
+  color: #fff;
+  border-color: var(--acc, #5b8a5b);
+}
+
+/* ── Advanced add row ─────────────────────────── */
+.ta-adv-toggle {
+  padding: 5px 12px;
+  border: 1.5px dashed var(--bdr, #ccc);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg2, #888);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.ta-adv-toggle:hover { color: var(--acc, #5b8a5b); border-color: var(--acc, #5b8a5b); }
+
+.ta-adv-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg2, #f9f9f9);
+  border: 1px solid var(--bdr, #e5e5e5);
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+.ta-adv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 160px;
+}
+.ta-adv-field--full { flex: 1 1 100%; }
+.ta-adv-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg2, #888);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.ta-adv-input {
+  padding: 6px 10px;
+  border: 1.5px solid var(--bdr, #ddd);
+  border-radius: 6px;
+  background: var(--bg, #fff);
+  color: var(--fg, #222);
+  font-size: 13px;
+  outline: none;
+  transition: border-color .2s;
+}
+.ta-adv-input:focus { border-color: var(--acc, #5b8a5b); }
+.ta-adv-ta {
+  padding: 6px 10px;
+  border: 1.5px solid var(--bdr, #ddd);
+  border-radius: 6px;
+  background: var(--bg, #fff);
+  color: var(--fg, #222);
+  font-size: 13px;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color .2s;
+}
+.ta-adv-ta:focus { border-color: var(--acc, #5b8a5b); }
+
+/* ── Task item enhancements ────────────────────── */
+.t-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 10px 10px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--bdr, #e8e8e8);
+  background: var(--bg, #fff);
+  margin-bottom: 6px;
+  transition: box-shadow .15s, opacity .2s, background .15s;
+  cursor: grab;
+}
+.t-item:active { cursor: grabbing; }
+.t-item.dragging { opacity: .5; box-shadow: 0 4px 18px rgba(0,0,0,.18); }
+.t-item.drag-over {
+  border-color: var(--acc, #5b8a5b);
+  background: var(--acc-faint, #f0f7f0);
+}
+
+/* Drag handle */
+.t-drag-handle {
+  font-size: 16px;
+  color: var(--fg2, #bbb);
+  cursor: grab;
+  user-select: none;
+  padding: 2px 2px;
+  align-self: center;
+  flex-shrink: 0;
+}
+.t-drag-handle:hover { color: var(--fg, #555); }
+
+/* ── Inline editing ───────────────────────────── */
+.t-txt.editing {
+  outline: 2px solid var(--acc, #5b8a5b);
+  border-radius: 3px;
+  padding: 1px 4px;
+  background: var(--bg2, #f9fff9);
+}
+.t-txt {
+  cursor: default;
+  word-break: break-word;
+}
+
+/* ── Action buttons ───────────────────────────── */
+.t-actions {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.t-item:hover .t-actions { opacity: 1; }
+.t-act-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 3px 4px;
+  border-radius: 4px;
+  transition: background .15s;
+}
+.t-act-btn:hover { background: var(--bg2, #f0f0f0); }
+
+/* ── Due date chip ────────────────────────────── */
+.t-due-chip {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  border: 1px solid;
+  font-weight: 500;
+}
+.t-due-chip.due-ok   { background: #e8f5e9; color: #388e3c; border-color: #a5d6a7; }
+.t-due-chip.due-soon { background: #fff8e1; color: #f57f17; border-color: #ffe082; }
+.t-due-chip.due-over { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
+
+/* ── Tag chips ────────────────────────────────── */
+.t-tag-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid;
+  cursor: pointer;
+  font-weight: 500;
+  transition: opacity .15s;
+}
+.t-tag-chip:hover { opacity: .75; }
+
+/* ── Subtask progress bar ─────────────────────── */
+.sub-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 5px;
+}
+.sub-progress-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--bdr, #e0e0e0);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.sub-progress-fill {
+  height: 100%;
+  background: var(--acc, #5b8a5b);
+  border-radius: 3px;
+  transition: width .3s ease;
+}
+.sub-progress-lbl {
+  font-size: 11px;
+  color: var(--fg2, #888);
+  white-space: nowrap;
+}
+
+/* ── Subtask panel ────────────────────────────── */
+.sub-panel {
+  background: var(--bg2, #f7f7f7);
+  border: 1px solid var(--bdr, #e8e8e8);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 8px 12px 10px;
+  margin-bottom: 4px;
+  margin-top: -2px;
+}
+.sub-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 0;
+}
+.sub-item.done .sub-txt { text-decoration: line-through; color: var(--fg2, #aaa); }
+.sub-chk {
+  width: 18px; height: 18px;
+  border-radius: 4px;
+  border: 1.5px solid var(--bdr, #bbb);
+  background: var(--bg, #fff);
+  cursor: pointer;
+  font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.sub-chk:hover { border-color: var(--acc, #5b8a5b); }
+.sub-txt { flex: 1; font-size: 13px; }
+.sub-del {
+  background: none; border: none;
+  color: var(--fg2, #bbb); cursor: pointer;
+  font-size: 16px; padding: 0 2px;
+  transition: color .15s;
+}
+.sub-del:hover { color: #c00; }
+.sub-add-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.sub-inp {
+  flex: 1;
+  padding: 5px 9px;
+  border: 1.5px solid var(--bdr, #ddd);
+  border-radius: 6px;
+  background: var(--bg, #fff);
+  font-size: 12px;
+  outline: none;
+}
+.sub-inp:focus { border-color: var(--acc, #5b8a5b); }
+.sub-add-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: none;
+  background: var(--acc, #5b8a5b);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+.sub-add-btn:hover { opacity: .85; }
+
+/* ── Notes panel ──────────────────────────────── */
+.notes-panel {
+  background: var(--bg2, #fffdf4);
+  border: 1px solid var(--bdr, #e8e8e8);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 8px 12px 10px;
+  margin-bottom: 4px;
+  margin-top: -2px;
+}
+.notes-ta {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border: 1.5px solid var(--bdr, #ddd);
+  border-radius: 6px;
+  background: var(--bg, #fff);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: border-color .2s;
+}
+.notes-ta:focus { border-color: var(--acc, #5b8a5b); }
+.notes-save-btn {
+  margin-top: 6px;
+  padding: 5px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--acc, #5b8a5b);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+.notes-save-btn:hover { opacity: .85; }
