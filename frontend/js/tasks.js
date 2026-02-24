@@ -34,15 +34,19 @@ function normalizeTask(t) {
 /* ── INIT ───────────────────────────────── */
 async function loadTasks() {
   loadTagColors();
-  injectTaskUI();
-  loadScratchPads();
+  // NOTE: injectTaskUI() and loadScratchPads() are called by switchMode()
+  // in app.js when the user switches to the tasks view — NOT here.
+  // This prevents task DOM from injecting into the notebook view on first paint.
   try {
     tasks = await apiGetTasks();
     tasks = tasks.map(normalizeTask);
-    renderTasks();
+    // Only render if the task view is currently visible
+    if (document.getElementById('task-view')?.style.display !== 'none') {
+      renderTasks();
+      renderPlannerView();
+      renderCalendarView();
+    }
     scheduleAllReminders();
-    renderPlannerView();
-    renderCalendarView();
   } catch(e) { toast('Failed to load tasks: ' + e.message); }
 }
 
@@ -278,7 +282,10 @@ const PAD_COLORS = [
   {bg:'#ffedd5', border:'#fdba74', hdr:'#fed7aa'},
 ];
 
+let _scratchPadsLoaded = false;
 function loadScratchPads() {
+  if (_scratchPadsLoaded) return;   // only render once per session
+  _scratchPadsLoaded = true;
   try {
     scratchPads = JSON.parse(localStorage.getItem('ws_scratch_pads') || '[]');
   } catch(_) { scratchPads = []; }

@@ -106,8 +106,18 @@ async function enterApp() {
   const username = localStorage.getItem('ws_user') || '';
   document.getElementById('tb-user').textContent = username;
 
-  initNotebook();   // build toolbar + setup editor events
+  // Remember last active mode, default to notebook
+  const lastMode = localStorage.getItem('ws_last_mode') || 'notebook';
+
+  // Show correct view immediately — BEFORE loading data
+  // This prevents both views rendering simultaneously on first paint
+  switchMode(lastMode);
+
+  initNotebook(); // build toolbar + setup editor events
+
+  // Load data in parallel — task UI only injects when task view is shown
   await Promise.all([loadNotebooks(), loadTasks()]);
+
   toast('Welcome, ' + username);
 }
 
@@ -147,7 +157,25 @@ function switchMode(m) {
   document.getElementById('task-view').style.display     = m === 'tasks'    ? 'flex' : 'none';
   document.getElementById('btn-nb').classList.toggle('active', m === 'notebook');
   document.getElementById('btn-tk').classList.toggle('active', m === 'tasks');
-  if (m !== 'notebook' && activeNbId) saveCurrentNb();
+
+  // Persist last mode so refresh restores correct view
+  localStorage.setItem('ws_last_mode', m);
+
+  // Inject task UI only when switching to tasks (safe to call multiple times — has guard)
+  if (m === 'tasks') {
+    injectTaskUI();
+    loadScratchPads();
+    // Re-render in case task data loaded while view was hidden (e.g. on first login defaulting to notebook)
+    if (typeof tasks !== 'undefined' && tasks.length >= 0) {
+      renderTasks();
+      renderPlannerView();
+      renderCalendarView();
+    }
+  }
+
+  if (m !== 'notebook' && typeof activeNbId !== 'undefined' && activeNbId) {
+    saveCurrentNb();
+  }
 }
 
 // ── Modals ────────────────────────────────────────────────────────────────────
@@ -162,7 +190,9 @@ document.querySelectorAll('.mo').forEach(el => {
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault();
-    if (activeNbId) saveCurrentNb().then(() => toast('Saved ✓'));
+    if (typeof activeNbId !== 'undefined' && activeNbId) {
+      saveCurrentNb().then(() => toast('Saved ✓'));
+    }
   }
   if (e.key === 'Escape') {
     document.querySelectorAll('.mo.open').forEach(m => closeMo(m.id));
